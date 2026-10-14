@@ -85,7 +85,7 @@ jobs:
       # No registry-url: nothing here publishes, so no .npmrc is written. No cache: this job produces
       # what users install.
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false
@@ -107,7 +107,7 @@ jobs:
 
       # download-artifact in `publish` verifies the digest recorded here.
       - name: Hand the tarball to the publish job
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-tarball
           path: ${{ runner.temp }}/tarball/*.tgz
@@ -133,7 +133,7 @@ jobs:
       id-token: write # the OIDC token npm exchanges for a publish token, and the provenance signature
     steps:
       - name: Download the tarball
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: package-tarball
           path: ${{ runner.temp }}/tarball
@@ -141,7 +141,7 @@ jobs:
       # Node 24 ships npm 11.19, above the 11.5.1 that trusted publishing needs; nothing is installed
       # over it. No cache: this job produces what users install.
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
