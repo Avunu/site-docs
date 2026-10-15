@@ -55,6 +55,8 @@ export interface Environment {
   run?: Runner;
   exists?: (path: string) => boolean;
   cwd?: string;
+  /** Print workflow commands (`::warning::`) instead of plain lines. Default: running in GitHub Actions. */
+  actions?: boolean;
 }
 
 export interface Io {

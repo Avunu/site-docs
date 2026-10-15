@@ -357,7 +357,13 @@ const defaultIo = {
 
 /** The command line. Returns the exit code. */
 export function main(argv, io = defaultIo, env = {}) {
-  const { run = systemRunner, exists = existsSync, cwd = process.cwd() } = env;
+  const {
+    run = systemRunner,
+    exists = existsSync,
+    cwd = process.cwd(),
+    // GitHub Actions turns `::warning::` lines into annotations; anywhere else they would be noise.
+    actions = process.env.GITHUB_ACTIONS === "true",
+  } = env;
   let values;
   try {
     ({ values } = parseArgs({
@@ -397,7 +403,6 @@ export function main(argv, io = defaultIo, env = {}) {
     return 2;
   }
 
-  const inActions = process.env.GITHUB_ACTIONS === "true";
   const report = bump(
     { projects, only: values.project, dryRun: values["dry-run"] },
     {
@@ -405,7 +410,7 @@ export function main(argv, io = defaultIo, env = {}) {
       exists,
       cwd,
       warn: (message) =>
-        io.stderr(inActions ? `::warning title=bump::${clean(message)}` : `bump: ${message}`),
+        io.stderr(actions ? `::warning title=bump::${clean(message)}` : `bump: ${message}`),
     },
   );
   for (const c of report.changed) {
@@ -416,7 +421,7 @@ export function main(argv, io = defaultIo, env = {}) {
   }
   for (const s of report.skipped) {
     io.stderr(
-      inActions
+      actions
         ? `::warning title=bump ${s.path}::skipped: ${s.error}`
         : `bump: ${s.path}: skipped: ${s.error}`,
     );

@@ -24,7 +24,7 @@ import {
   type RunResult,
   type Runner,
 } from "../../scripts/bump-submodules.mjs";
-import { REPO_ROOT, git, initRepo, isWindows, tempDir } from "../support/index.js";
+import { REPO_ROOT, git, initRepo, isWindows, slash, tempDir } from "../support/index.js";
 
 const A = "a".repeat(40);
 const B = "b".repeat(40);
@@ -309,7 +309,7 @@ const updates = (f: Fake): string[] =>
 describe("bump", () => {
   const environment = (f: Fake, initialised: string[] = []) => ({
     run: f.run,
-    exists: (path: string) => initialised.some((folder) => path.endsWith(`${folder}/.git`)),
+    exists: (path: string) => initialised.some((folder) => slash(path).endsWith(`${folder}/.git`)),
     cwd: "/work",
   });
 
@@ -505,7 +505,7 @@ describe("main", () => {
     );
     mkdirSync(join(cwd, "out"));
     const argv = ["--json", "out/bump.json", "--summary", join(cwd, "bump.md")];
-    expect(main(argv, ioOf(io), { run: f.run, cwd })).toBe(0);
+    expect(main(argv, ioOf(io), { run: f.run, cwd, actions: false })).toBe(0);
     const report = JSON.parse(readFileSync(join(cwd, "out", "bump.json"), "utf8")) as Report;
     expect(report.changed).toHaveLength(1);
     expect(report.changed[0]).toMatchObject({
@@ -527,26 +527,37 @@ describe("main", () => {
   test("a report that cannot be written is the one hard failure, exit 1", () => {
     const { cwd, io } = workspace();
     const f = fake({}, {});
-    expect(main(["--json", "no/such/folder/bump.json"], ioOf(io), { run: f.run, cwd })).toBe(1);
+    expect(
+      main(["--json", "no/such/folder/bump.json"], ioOf(io), { run: f.run, cwd, actions: false }),
+    ).toBe(1);
     expect(io.err.join("\n")).toContain("cannot write the report");
   });
 
   test("exits 0 when a lookup fails, and says which project was skipped", () => {
     const { cwd, io } = workspace();
     const f = fake({}, { "projects/alpha": A, "projects/beta": A });
-    expect(main([], ioOf(io), { run: f.run, cwd })).toBe(0);
+    expect(main([], ioOf(io), { run: f.run, cwd, actions: false })).toBe(0);
     expect(io.err.join("\n")).toMatch(/bump: alpha: skipped: git ls-remote failed/);
     expect(io.out.at(-1)).toBe("bump: 0 changed, 0 up to date, 2 skipped");
+  });
+
+  test("in GitHub Actions a skipped project is an annotation", () => {
+    const { cwd, io } = workspace();
+    const f = fake({}, { "projects/alpha": A, "projects/beta": A });
+    expect(main([], ioOf(io), { run: f.run, cwd, actions: true })).toBe(0);
+    expect(io.err[0]).toMatch(/^::warning title=bump alpha::skipped: git ls-remote failed/);
   });
 
   test("a usage error is 2, an unreadable registry is 1, an unknown --project is 2", () => {
     const { cwd, io } = workspace();
     const f = fake({}, {});
-    expect(main(["--nope"], ioOf(io), { run: f.run, cwd })).toBe(2);
-    expect(main(["--project", "gamma"], ioOf(io), { run: f.run, cwd })).toBe(2);
-    expect(main(["--registry", "missing.json"], ioOf(io), { run: f.run, cwd })).toBe(1);
+    expect(main(["--nope"], ioOf(io), { run: f.run, cwd, actions: false })).toBe(2);
+    expect(main(["--project", "gamma"], ioOf(io), { run: f.run, cwd, actions: false })).toBe(2);
+    expect(
+      main(["--registry", "missing.json"], ioOf(io), { run: f.run, cwd, actions: false }),
+    ).toBe(1);
     writeFileSync(join(cwd, "bad.json"), "{}");
-    expect(main(["--registry", "bad.json"], ioOf(io), { run: f.run, cwd })).toBe(1);
+    expect(main(["--registry", "bad.json"], ioOf(io), { run: f.run, cwd, actions: false })).toBe(1);
     expect(f.calls).toEqual([]);
   });
 });
