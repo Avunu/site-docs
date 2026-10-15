@@ -14,10 +14,10 @@ name: Check docs
 #       uses: <this repository>/.github/workflows/check-docs.yml@<40-character commit> # <version or date>
 #       with:
 #         path: frappe-nix # the `path` of the project in projects.json
-#         ref: <the same 40-character commit as in `uses:`>
 #
-# What it does: checks out this repository at the commit the caller passes as `ref` (the one it pinned
-# in `uses:`) with every project's submodule except the calling one, checks out the caller's pull
+# What it does: checks out this repository at the commit the caller pinned in `uses:` (this workflow
+# reads it from `job.workflow_sha`, so the tool and this file are always one revision, and a Dependabot
+# bump of the pin moves both) with every project's submodule except the calling one, checks out the caller's pull
 # request into a folder of its own, then runs the workspace check for that one project with the caller's
 # checkout in place of its submodule:
 #
@@ -34,8 +34,8 @@ name: Check docs
 # Which repository supplies the tool is the one literal of this workflow, WORKSPACE_REPOSITORY below:
 # inside a called workflow `github.repository` is the CALLER's repository, so this repository's own name
 # cannot be read from the context. Change it when the repository is renamed (the old name keeps working
-# through GitHub's redirect until another repository takes it). Which commit: the `ref` input, default
-# `main`; a caller passes the commit it pinned in `uses:`, so the tool and this workflow are one revision.
+# through GitHub's redirect until another repository takes it). Which commit: the one the caller pinned in
+# `uses:`; the optional `ref` input overrides it (a branch, to try a change of the tool before it is pinned).
 on:
   workflow_call:
     inputs:
@@ -44,10 +44,10 @@ on:
         required: true
         type: string
       ref:
-        description: Commit, branch or tag of the workspace repository to build with. Callers pass the commit they pinned in `uses`.
+        description: Commit, branch or tag of the workspace repository to build with. Leave it out to use the commit pinned in `uses`.
         required: false
         type: string
-        default: main
+        default: ""
 
 permissions: {}
 
@@ -63,16 +63,26 @@ jobs:
       contents: read # checkout
     env:
       PROJECT: ${{ inputs.path }}
-      TOOL_REF: ${{ inputs.ref }}
     steps:
+      # Inside a called workflow `github.sha` is the CALLER's commit; `job.workflow_sha` is the commit of
+      # this file, which is the commit the caller pinned.
+      - name: Find the revision of the tool
+        id: rev
+        env:
+          GIVEN: ${{ inputs.ref }}
+          OWN: ${{ job.workflow_sha }}
+        run: echo "ref=${GIVEN:-$OWN}" >> "$GITHUB_OUTPUT"
+
       - name: Check the inputs
+        env:
+          TOOL_REF: ${{ steps.rev.outputs.ref }}
         run: |
           if ! [[ "$PROJECT" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
             echo "::error title=path::must be the project's path in projects.json, such as frappe-nix (got '$PROJECT')"
             exit 1
           fi
           if ! [[ "$TOOL_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]; then
-            echo "::error title=ref::must be a commit, branch or tag name (got '$TOOL_REF')"
+            echo "::error title=ref::must be a commit, branch or tag name (got '$TOOL_REF'); pass the input \`ref\` if the commit of this workflow cannot be read"
             exit 1
           fi
 
@@ -81,7 +91,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.WORKSPACE_REPOSITORY }}
-          ref: ${{ inputs.ref }}
+          ref: ${{ steps.rev.outputs.ref }}
           path: workspace
           fetch-depth: 1
           persist-credentials: false

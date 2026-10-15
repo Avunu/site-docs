@@ -43,12 +43,12 @@ The token is the secret `DOCS_BUMP_TOKEN` when it exists and `GITHUB_TOKEN` othe
 
 Name: **Check docs**. A reusable workflow that each project repository calls from its own `.github/workflows/docs.yml` to check its documentation on its own pull requests.
 
-Inputs: `path` (required: the project's path in `projects.json`) and `ref` (the commit of this repository to build with; default `main`; callers pass the commit they pinned in `uses:`).
+Inputs: `path` (required: the project's path in `projects.json`) and `ref` (optional: a commit, branch or tag of this repository to build with instead of the commit pinned in `uses:`, which the workflow reads from `job.workflow_sha`).
 
 Steps, with `contents: read` and no secret:
 
-1. Validate both inputs against a strict pattern.
-2. Check out this repository at `ref`, without its submodules, into `workspace/`; check out the calling project's pull request into `project/`.
+1. Find the revision of the tool (`ref`, else the commit of this workflow file) and validate it and `path` against a strict pattern.
+2. Check out this repository at that revision, without its submodules, into `workspace/`; check out the calling project's pull request into `project/`.
 3. Fail with a plain message when `path` is not in `projects.json`.
 4. Fetch every other project as a submodule, shallow and over https only.
 5. `npm ci --ignore-scripts`, `npm run build`, then `CI=true node build/cli.js check --only <path> --source <path>=<the project's checkout>`.

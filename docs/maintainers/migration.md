@@ -49,7 +49,7 @@ One scripted pass over the 22 repositories, **one change per repository**, each 
 
 - delete `docs-site/`;
 - delete `.github/workflows/docs-publish.yml`;
-- change `.github/workflows/docs.yml` to call `Avunu/site-docs/.github/workflows/check-docs.yml` pinned by a full commit SHA, with `path` set to the project's path in `projects.json` and `ref` set to the same SHA (see [adding a project](../guide/adding-a-project.md#check-a-projects-own-pull-requests));
+- change `.github/workflows/docs.yml` to call `Avunu/site-docs/.github/workflows/check-docs.yml` pinned by a full commit SHA, with `path` set to the project's path in `projects.json` (see [adding a project](../guide/adding-a-project.md#check-a-projects-own-pull-requests));
 - remove what only served the deleted folder: the Dependabot entry for the npm ecosystem at `/docs-site`, an ignore or format rule for `docs-site`, and any link in the README to the old address.
 
 A repository that is not in `projects.json` cannot call the workflow, so register it first. The repositories' Pages sites keep serving the last published content until step 5.
