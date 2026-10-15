@@ -1,12 +1,11 @@
 name: Jx latest
 
-# The early warning for a Jx release that Dependabot has not proposed yet. The package pins the four Jx
-# packages it was tested with, exactly, so a Jx release reaches this repository only through a
-# Dependabot pull request (the `jx` group, a few days after the release at the latest). Weekly, this
-# workflow installs `@jxsuite/*@latest` over the pins (without saving anything), runs the real-Jx canary
-# of the integration tests and builds the example with the result. When that fails it opens one issue
-# (or adds a comment to the one that is open) so that the break is known before the Dependabot pull
-# request arrives.
+# The early warning for a Jx release that Dependabot has not proposed yet. This repository pins the four
+# Jx packages it was tested with, exactly, so a Jx release reaches it only through a Dependabot pull
+# request (the `jx` group, a few days after the release at the latest). Weekly, this workflow installs
+# `@jxsuite/*@latest` over the pins (without saving anything), runs the real-Jx integration tests and
+# checks the whole documentation site with the result. When that fails it opens one issue (or adds a
+# comment to the one that is open) so that the break is known before the Dependabot pull request arrives.
 on:
   schedule:
     - cron: "41 5 * * 2"
@@ -20,7 +19,7 @@ concurrency:
 
 jobs:
   canary:
-    name: Canary and example with the latest Jx
+    name: Integration tests and the site with the latest Jx
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -32,6 +31,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The submodules are public content for the build to read; over https alone, never code that runs.
+      - name: Fetch the projects
+        env:
+          GIT_ALLOW_PROTOCOL: https
+        run: git submodule update --init --depth 1 --recursive
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -53,15 +57,15 @@ jobs:
           echo "versions=$versions" >> "$GITHUB_OUTPUT"
       - name: Build
         run: npm run build
-      # test/integration runs the pinned Jx on the clean and the broken canary trees: strictness must not
-      # fail open when Jx rewords a message.
-      - name: The real-Jx canary
+      # test/integration builds fixture workspaces, clean and broken, with the real Jx: strictness must
+      # not fail open when Jx rewords a message.
+      - name: The real-Jx integration tests
         run: npm test -- --project integration
-      # The CLI finds Jx next to itself, so this builds the example with what was just installed.
-      - name: Check the example with the latest Jx
+      # The build finds Jx next to itself, so this builds the site with what was just installed.
+      - name: Check the whole site with the latest Jx
         env:
           CI: "true"
-        run: node dist/cli.js check --ci --site examples/basic/docs-site
+        run: node build/cli.js check --ci
 
   report:
     name: Open or update the issue
@@ -89,10 +93,10 @@ jobs:
           fi
           body="The weekly run with the latest Jx (${VERSIONS:-versions not recorded}) failed: $RUN_URL
 
-          Nothing is broken for sites yet: this package pins its Jx packages exactly and consumers install those. A Dependabot pull request for the \`jx\` group will fail the same way. Read the log of the failed step (the canary or the example build) first."
+          Nothing is broken on the site yet: this repository pins its Jx packages exactly. A Dependabot pull request for the \`jx\` group will fail the same way. Read the log of the failed step (the integration tests or the site check) first."
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --body "$body"
           else
             gh label create jx-latest --description "The weekly run against the latest Jx failed" --color B60205 --force
-            gh issue create --label jx-latest --title "The latest Jx breaks the docs system" --body "$body"
+            gh issue create --label jx-latest --title "The latest Jx breaks the docs site build" --body "$body"
           fi

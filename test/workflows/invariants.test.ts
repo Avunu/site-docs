@@ -1,6 +1,6 @@
-// What must hold for every workflow of this repository, whatever it does (section 4.4, 5.4, 8.2 and 9.8
-// of the architecture decision record): least privilege, pinned actions, nothing from a pull request
-// reaching a shell by interpolation, nothing running at install time.
+// What must hold for every workflow of this repository, whatever it does: least privilege, pinned
+// actions, nothing from a pull request reaching a shell by interpolation, nothing running at install
+// time.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
@@ -16,41 +16,26 @@ import {
   type WorkflowFile,
 } from "./helpers.js";
 
-// docs.yml and docs-publish.yml are the dogfood callers (WP12): they are held to the caller invariants
-// of callers.test.ts, not to the table of this file.
-const CALLERS = new Set(["docs.yml", "docs-publish.yml"]);
-const workflows = repositoryWorkflows().filter((wf) => !CALLERS.has(wf.file));
+const workflows = repositoryWorkflows();
 
 /** The events each workflow of this repository starts on. */
 const EVENTS: Record<string, string[]> = {
-  "catalog.yml": ["schedule", "workflow_dispatch"],
+  "bump.yml": ["schedule", "workflow_dispatch"],
+  "check-docs.yml": ["workflow_call"],
   "ci.yml": ["pull_request", "push", "workflow_dispatch"],
-  "docs-build.yml": ["workflow_call"],
-  "docs-deploy.yml": ["workflow_call"],
-  "fleet.yml": ["schedule", "workflow_dispatch"],
+  "deploy.yml": ["push", "workflow_dispatch"],
   "jx-latest.yml": ["schedule", "workflow_dispatch"],
-  "release.yml": ["push", "schedule", "workflow_dispatch"],
 };
 
 /** The only jobs that hold a write permission, and which. Everything else is read-only or has none. */
 const WRITES: Record<string, string[]> = {
-  "catalog.yml#refresh": ["actions", "contents", "pull-requests"],
-  "docs-deploy.yml#deploy": ["id-token", "pages"],
+  "bump.yml#bump": ["actions", "contents", "pull-requests"],
+  "deploy.yml#deploy": ["id-token", "pages"],
   "jx-latest.yml#report": ["issues"],
-  "release.yml#publish": ["id-token"],
-  "release.yml#release-please": ["actions", "contents", "pull-requests"],
 };
 
-/** The scripts a workflow may run: this package's (3.1) and the ones other work packages own. */
-const SCRIPTS = new Set([
-  "check-pack.mjs",
-  "check-pr-title.mjs",
-  "sync-catalog.mjs",
-  "test-pack.mjs",
-  "assert-dist.mjs",
-  "compare-dist.mjs",
-  "fleet.mjs",
-]);
+/** The scripts a workflow may run; every one of them exists in scripts/. */
+const SCRIPTS = new Set(["bump-submodules.mjs", "check-pr-title.mjs"]);
 
 const runScripts = (wf: WorkflowFile): { job: string; step: string; run: string }[] =>
   Object.entries(wf.doc.jobs).flatMap(([job, body]) =>
@@ -60,7 +45,7 @@ const runScripts = (wf: WorkflowFile): { job: string; step: string; run: string 
   );
 
 describe("the workflows of this repository", () => {
-  test("are exactly the ones of section 3.1 (the dogfood callers aside)", () => {
+  test("are exactly the ones this repository documents", () => {
     expect(workflows.map((wf) => wf.file)).toEqual(Object.keys(EVENTS));
   });
 
@@ -109,13 +94,13 @@ describe("the workflows of this repository", () => {
     },
   );
 
-  test("id-token: write exists only where a token is exchanged: npm publishing and GitHub Pages", () => {
+  test("id-token: write exists only where a token is exchanged: GitHub Pages", () => {
     const holders = workflows.flatMap((wf) =>
       Object.entries(wf.doc.jobs)
         .filter(([, job]) => job.permissions?.["id-token"] === "write")
         .map(([id]) => `${wf.file}#${id}`),
     );
-    expect(holders.sort()).toEqual(["docs-deploy.yml#deploy", "release.yml#publish"]);
+    expect(holders.sort()).toEqual(["deploy.yml#deploy"]);
   });
 
   test("a job that holds id-token: write runs no repository code: no checkout, no install, no npm script, no npx", () => {
@@ -175,7 +160,7 @@ describe("the workflows of this repository", () => {
   );
 
   test.each(workflows.map((wf) => [wf.file, wf] as const))(
-    "%s: installs with the lockfile frozen and no scripts, and never fetches the CLI with npx or bunx",
+    "%s: installs with the lockfile frozen and no scripts, and never fetches a package with npx or bunx",
     (_file, wf) => {
       for (const { job, step, run } of runScripts(wf)) {
         const where = `${wf.file}#${job}: ${step}`;
@@ -189,24 +174,23 @@ describe("the workflows of this repository", () => {
               expect(command, where).toContain("--no-save");
             }
           }
-          expect(line, where).not.toMatch(/\b(?:npx|bunx)\b.*docusystem/);
+          expect(line, where).not.toMatch(/\b(?:npx|bunx)\b/);
         }
       }
     },
   );
 
-  test("run only scripts the decision record names, and the ones owned here exist", () => {
+  test("run only the scripts of this repository, which exist, and npm scripts that exist", () => {
     const pkg = readJson<{ scripts: Record<string, string> }>("package.json");
     for (const wf of workflows) {
       for (const { job, step, run } of runScripts(wf)) {
         const where = `${wf.file}#${job}: ${step}`;
         for (const [, name] of run.matchAll(/\bscripts\/([\w.-]+\.mjs)\b/g)) {
           expect(SCRIPTS, `${where}: scripts/${name}`).toContain(name);
-          if (name === "check-pack.mjs" || name === "check-pr-title.mjs") {
-            expect(existsSync(join(REPO_ROOT, "scripts", name)), `scripts/${name} exists`).toBe(
-              true,
-            );
-          }
+          expect(
+            existsSync(join(REPO_ROOT, "scripts", name as string)),
+            `scripts/${name} exists`,
+          ).toBe(true);
         }
         for (const [, name] of run.matchAll(/^\s*npm run ([\w:-]+)/gm)) {
           expect(pkg.scripts, `${where}: npm run ${name}`).toHaveProperty(name as string);
@@ -215,11 +199,11 @@ describe("the workflows of this repository", () => {
     }
   });
 
-  test("a workflow publishes to npm only in release.yml", () => {
+  test("no workflow publishes a package: the site is the only thing this repository ships", () => {
     const publishers = workflows
-      .filter((wf) => /\bnpm publish\b/.test(wf.text))
+      .filter((wf) => /\b(?:npm|bun|pnpm|yarn) publish\b/.test(wf.text))
       .map((wf) => wf.file);
-    expect(publishers).toEqual(["release.yml"]);
+    expect(publishers).toEqual([]);
   });
 
   test("no workflow creates or moves a tag: callers pin a commit and there is no major tag", () => {
@@ -240,14 +224,9 @@ describe("the files around the workflows", () => {
     expect(config.rules["unpinned-uses"].config.policies).toEqual({ "*": "hash-pin" });
   });
 
-  test("CODEOWNERS puts the release pipeline and the reusable workflows under a maintainer", () => {
+  test("CODEOWNERS puts the workflows, the registry and the package files under a maintainer", () => {
     const owners = readText(".github", "CODEOWNERS");
-    for (const path of [
-      "/.github/",
-      "/release-please-config.json",
-      "/.release-please-manifest.json",
-      "/package.json",
-    ]) {
+    for (const path of ["/.github/", "/projects.json", "/.gitmodules", "/package.json"]) {
       expect(owners, path).toMatch(
         new RegExp(`^${path.replaceAll(/[./]/g, String.raw`\$&`)}\\s+@\\S+`, "m"),
       );
@@ -278,14 +257,14 @@ describe("the files around the workflows", () => {
     );
     expect(config.blank_issues_enabled).toBe(false);
     expect(config.contact_links.map((link) => link.url)).toContain(
-      "https://github.com/Avunu/docusystem/security/advisories/new",
+      "https://github.com/Avunu/site-docs/security/advisories/new",
     );
   });
 
-  test("the pull request template asks for the checks and for breaking changes", () => {
+  test("the pull request template asks for the checks and for changed addresses", () => {
     const template = readText(".github", "PULL_REQUEST_TEMPLATE.md");
     expect(template).toContain("npm run check");
-    expect(template).toContain("npm run check:pack");
-    expect(template).toMatch(/Breaking for consumers/);
+    expect(template).toContain("node build/cli.js check");
+    expect(template).toMatch(/Does it change what readers see\?/);
   });
 });

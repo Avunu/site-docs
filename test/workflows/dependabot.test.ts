@@ -1,5 +1,5 @@
-// .github/dependabot.yml (section 5.4 and 7.2 of the architecture decision record): the update chain
-// for Jx, and the commit prefixes release-please turns into versions.
+// .github/dependabot.yml: the update chain for Jx, and the commit prefixes that the pull request title
+// check accepts.
 import { describe, expect, test } from "vitest";
 import { problemsWith } from "../../scripts/check-pr-title.mjs";
 import { readYaml } from "./helpers.js";
@@ -18,7 +18,7 @@ interface Entry {
 }
 
 const config = readYaml<{ version: number; updates: Entry[] }>(".github", "dependabot.yml");
-/** The entry for the repository root: the package itself, as opposed to the documentation site's. */
+/** The entry for the repository root: the build, as opposed to the browser suites in verify/. */
 const entry = (ecosystem: string): Entry => {
   const found = config.updates.find(
     (candidate) => candidate["package-ecosystem"] === ecosystem && candidate.directory === "/",
@@ -28,25 +28,24 @@ const entry = (ecosystem: string): Entry => {
 };
 
 describe(".github/dependabot.yml", () => {
-  test("is version 2: npm and github-actions for the repository root, plus npm for docs-site/, all weekly", () => {
+  test("is version 2: npm and github-actions for the repository root, plus npm for verify/, all weekly", () => {
     expect(config.version).toBe(2);
     expect(
       config.updates.map((update) => `${update["package-ecosystem"]} ${update.directory}`).sort(),
-    ).toEqual(["github-actions /", "npm /", "npm /docs-site"]);
+    ).toEqual(["github-actions /", "npm /", "npm /verify"]);
     for (const update of config.updates) {
       expect(update.schedule.interval).toBe("weekly");
       expect(update.cooldown?.["default-days"]).toBe(7); // zizmor's dependabot-cooldown audit wants one
     }
   });
 
-  test("the docs-site/ entry is this repository's own documentation: it never cuts a release, and takes the package without a cooldown", () => {
-    const docs = config.updates.find((update) => update.directory === "/docs-site");
-    expect(docs?.["package-ecosystem"]).toBe("npm");
-    expect(docs?.["commit-message"]?.prefix).toBe("chore");
-    expect(docs?.cooldown?.exclude).toEqual(["@avunu/docusystem"]);
+  test("the submodules are not Dependabot's: the bump workflow moves them to each project's release", () => {
+    expect(config.updates.map((update) => update["package-ecosystem"])).not.toContain(
+      "gitsubmodule",
+    );
   });
 
-  test("the jx group takes every @jxsuite package, without a cooldown: a Jx fix should reach the sites within days", () => {
+  test("the jx group takes every @jxsuite package, without a cooldown: a Jx fix should reach the site within days", () => {
     const npm = entry("npm");
     expect(npm.groups?.jx).toEqual({ patterns: ["@jxsuite/*"] });
     expect(npm.cooldown?.exclude).toEqual(["@jxsuite/*"]);
@@ -65,21 +64,23 @@ describe(".github/dependabot.yml", () => {
     ]);
   });
 
-  test("a runtime dependency is fix(deps), which is a patch release; development and CI never release", () => {
-    expect(entry("npm")["commit-message"]).toEqual({
-      prefix: "fix",
-      "prefix-development": "chore",
+  test("every update is a chore(deps) or ci(deps): nothing is released, so no update is a fix", () => {
+    expect(entry("npm")["commit-message"]).toEqual({ prefix: "chore", include: "scope" });
+    expect(
+      config.updates.find((update) => update.directory === "/verify")?.["commit-message"],
+    ).toEqual({
+      prefix: "chore",
       include: "scope",
     });
     expect(entry("github-actions")["commit-message"]).toEqual({ prefix: "ci", include: "scope" });
     // The titles those settings produce are all accepted by the pull request title check.
     for (const title of [
-      "fix(deps): bump the jx group with 4 updates",
-      "fix(deps): bump yaml from 2.9.1 to 2.9.2",
-      "chore(deps-dev): bump the tooling group with 3 updates",
+      "chore(deps): bump the jx group with 4 updates",
+      "chore(deps): bump yaml from 2.9.1 to 2.9.2",
+      "chore(deps): bump the browser-suites group with 3 updates",
       "ci(deps): bump the actions group with 2 updates",
     ]) {
-      expect(problemsWith(title, ""), title).toEqual([]);
+      expect(problemsWith(title), title).toEqual([]);
     }
   });
 });
