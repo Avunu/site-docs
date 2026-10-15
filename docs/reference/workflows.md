@@ -1,80 +1,75 @@
 ---
 title: Workflows
-description: The two reusable GitHub Actions workflows, docs-build.yml and docs-deploy.yml, with their inputs, permissions, steps and the trust model.
-order: 5
-updated: 2026-10-06
+description: The GitHub Actions workflows of this repository, what triggers each, the permissions it holds, what it does, and the trust model they share.
+order: 4
+updated: 2026-10-15
 tags: [reference, github-actions, security]
 ---
 
-Two reusable workflows live in `Avunu/docusystem/.github/workflows/`. A project calls them from its own `docs.yml` and `docs-publish.yml` with:
+Four workflows keep the site current and safe. A fifth, `ci.yml`, tests this repository. Every action is pinned to a full commit SHA with its version in a comment, every workflow starts with `permissions: {}`, and each job asks only for what it needs.
 
-```text
-uses: Avunu/docusystem/.github/workflows/<file>@<40-hex commit> # vX.Y.Z
-```
+| Workflow                           | Triggers                                                  | Holds                                                              |
+| ---------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------ |
+| [`deploy.yml`](#deployyml)         | Push to the default branch that touches the site; by hand | Build: `contents: read`. Deploy: `pages: write`, `id-token: write` |
+| [`bump.yml`](#bumpyml)             | Every 30 minutes; by hand                                 | `contents`, `pull-requests`, `actions`: write                      |
+| [`check-docs.yml`](#check-docsyml) | Called by a project's own workflow                        | `contents: read`                                                   |
+| [`ci.yml`](#ciyml)                 | Pull requests; pushes to the default branch; by hand      | Read-only                                                          |
 
-The caller pins a commit, never a tag or a branch, and puts the version in the trailing comment. There is no moving major tag. Callers' triggers must be `pull_request`, `push` or `workflow_dispatch`, never `pull_request_target` or `workflow_run`, because the build workflow checks out and executes the pull request's code. `docusystem doctor` errors on both.
+## `deploy.yml`
 
-The setup a maintainer does once is in [Publishing](../guide/publishing.md).
+Name: **Docs site**. It builds and checks the whole site, and when the repository variable `DOCS_SITE_ENABLED` is `true` and the run is on the default branch, publishes it to GitHub Pages.
 
-## `docs-build.yml`
+Triggers: a push to `main` that touches the submodules (`projects/**`, `.gitmodules`), the registry (`projects.json`), this repository's own pages (`docs/**`), the shell (`site/**`), the tool (`src/**`), the package and TypeScript files or the workflow itself; and `workflow_dispatch`. One run per branch at a time, never cancelled half way.
 
-| Item                   | Value                                                                                                                                                                               |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Input `site-directory` | String, default `docs-site`. Validated against `^[A-Za-z0-9_][A-Za-z0-9._/-]*$` with no `..`, and passed to shell steps only through the environment.                               |
-| Input `pages-artifact` | Boolean, default `false`. `true` uploads the Pages artifact (with hidden files) for `docs-deploy.yml`; otherwise a 7-day review artifact named `docs-site`.                         |
-| Outputs, secrets       | None                                                                                                                                                                                |
-| Job                    | Id `check`, name `Check`. From a caller job named `build` the required-check name is `build / Check`. On a push it runs only for the default branch. Permissions: `contents: read`. |
-| Environment            | `DOCUSYSTEM_WORKFLOW_CONTRACT: "1"` and `DOCUSYSTEM_BRANCH`, the repository's default branch                                                                                        |
+- **Build job** (`contents: read`, no secret). Checks out the repository with its submodules, shallow and without leaving credentials behind. Sets up Node 24 with no cache. `npm ci --ignore-scripts`, `npm run build`, then `CI=true node build/cli.js check`, which writes the site to `dist` and reports its path as the step output `dist`. Uploads that folder as the Pages artifact, only when publishing is on.
+- **Deploy job** (`pages: write`, `id-token: write`, environment `github-pages`). Runs only when `DOCS_SITE_ENABLED` is `true` on the default branch and the build passed. It configures Pages and deploys the artifact the build job made. It runs none of this repository's code and none of any project's.
 
-Steps:
+Until `DOCS_SITE_ENABLED` is `true` the workflow builds and checks and publishes nothing.
 
-1. Validate the site directory.
-2. Check out the repository with `persist-credentials: false`.
-3. Require `package-lock.json` and refuse `bun.lock` and `bun.lockb`.
-4. Set up Node 24 with `package-manager-cache: false`.
-5. `npm ci --ignore-scripts --no-audit --no-fund`.
-6. `npm audit signatures`, plus an assertion that `@avunu/docusystem` has a verified provenance attestation.
-7. `CI=true ./node_modules/.bin/docusystem check --ci`: the installed CLI, never `npx` or `bunx`.
-8. Upload the site: the review artifact on a pull request or when `pages-artifact` is false, else the Pages artifact.
-9. On failure, upload `.docusystem/manifest.json`, `.docusystem/jx.log` and `.docusystem/site` (without `node_modules`) as the artifact `docusystem-debug`.
+## `bump.yml`
 
-## `docs-deploy.yml`
+Name: **Bump projects**. A pull workflow: this repository reads each project's releases, and no project holds a secret.
 
-| Item              | Value                                                                                                                                                                                                                                          |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Inputs, secrets   | None                                                                                                                                                                                                                                           |
-| Output `page-url` | The Pages URL                                                                                                                                                                                                                                  |
-| Job               | Id `deploy`, name `Publish`. Runs only for events other than `pull_request`, on the default branch. Permissions: `pages: write` and `id-token: write`. Concurrency group `pages` with `cancel-in-progress: false`. Environment `github-pages`. |
-| Steps             | `configure-pages`, then `deploy-pages`                                                                                                                                                                                                         |
+Triggers: a schedule at minutes 7 and 37 of every hour, and `workflow_dispatch` with the optional input `project` (a registry path such as `frappe-nix`) to bump only that project.
 
-It downloads the Pages artifact that `docs-build.yml` made in the same run and publishes it. It executes no project code. Every action in both workflows is pinned to a commit SHA.
+1. Check out the default branch without submodules, set up Node 24.
+2. Run `node scripts/bump-submodules.mjs`. For each non-local project in `projects.json` the target is the commit of the tag of its latest non-prerelease GitHub Release; a project with no release gets the head of its `branch`. The script changes only the index of the checkout (the submodule pointers) and writes a JSON report and the Markdown for the pull request. A project whose lookup fails is reported and skipped; the others still bump. The options are `--project`, `--registry`, `--json`, `--summary` and `--dry-run`, which resolves and reports without changing the index.
+3. When anything moved: commit the pointers on a branch `bump/projects` rebuilt from the default branch, push it with a lease (only that branch, never the default branch), open or update the one pull request `chore(docs): bump N project(s)` and turn on auto-merge.
+4. When nothing is left to bump and no lookup failed, close the open bump pull request.
 
-## Permissions
+The token is the secret `BUMP_TOKEN` when it exists and `GITHUB_TOKEN` otherwise. With `GITHUB_TOKEN`, a pull request starts no `pull_request` workflows, so the workflow dispatches `ci.yml` on the branch instead; and the merge that auto-merge makes starts no push workflow, so `deploy.yml` does not run by itself. [Operations](../maintainers/operations.md) has the exact token permissions and the consequences.
 
-A called workflow cannot widen its caller's permissions, so the caller grants them:
+## `check-docs.yml`
 
-- `docs.yml` (pull requests) calls only `docs-build.yml` and grants only `contents: read`.
-- `docs-publish.yml` grants `contents: read` to the build job, and `pages: write` and `id-token: write` to the deploy job. It is the only file that grants write permissions.
-- Every caller starts with `permissions: {}`.
+Name: **Check docs**. A reusable workflow that each project repository calls from its own `.github/workflows/docs.yml` to check its documentation on its own pull requests.
 
-No workflow that a pull request can trigger asks for `pages: write` or `id-token: write`. That is why the system has two caller files, and why the reusable side is split the same way: it is not verified that a called workflow which asks for those permissions starts on a Dependabot-authored pull request, and Dependabot's upgrade pull requests are the main upgrade path.
+Inputs: `path` (required: the project's path in `projects.json`) and `ref` (the commit of this repository to build with; default `main`; callers pass the commit they pinned in `uses:`).
+
+Steps, with `contents: read` and no secret:
+
+1. Validate both inputs against a strict pattern.
+2. Check out this repository at `ref`, without its submodules, into `workspace/`; check out the calling project's pull request into `project/`.
+3. Fail with a plain message when `path` is not in `projects.json`.
+4. Fetch every other project as a submodule, shallow and over https only.
+5. `npm ci --ignore-scripts`, `npm run build`, then `CI=true node build/cli.js check --only <path> --source <path>=<the project's checkout>`.
+
+The project's pull request is judged exactly as the site will build it, links to the other projects included. Its code is never installed or executed: it is read as documents. The trigger belongs to the caller and must be `pull_request`, `push` or `workflow_dispatch`, never `pull_request_target` or `workflow_run`. See [adding a project](../guide/adding-a-project.md#check-a-projects-own-pull-requests) for the caller.
+
+The repository that supplies the tool is named once inside the workflow (`WORKSPACE_REPOSITORY`), because inside a called workflow `github.repository` is the caller's.
+
+## `ci.yml`
+
+The workflow that tests this repository, with one required check, `ci`, that gathers the rest and tolerates skipped jobs. It runs the format check, lint, type check, and the unit and integration tests; builds and checks the documentation workspace when the change can reach the site (the same paths as the push filter of `deploy.yml`, always on a manual run); runs the browser suites against a fixture workspace; lints the workflows with `actionlint` and `zizmor`; and checks that a pull request title is a Conventional Commit. A run started with `workflow_dispatch` is how a bump pull request opened with `GITHUB_TOKEN` gets its checks.
 
 ## Trust model
 
-A pull request can change `docs/` and `docs-site/`: the config, the lockfile and any override. An override's component JSON can carry compiler-time function bodies that run at build time, so a pull request that changes `docs-site/` can run code in the build job. That job has a read-only token and no secrets. A pull request that changes only `docs/` cannot: a page is data.
+Documentation is other people's text. A project's `docs/` folder is content that this repository reads, never code it runs.
 
-A pull request cannot:
-
-- change the reusable workflows, which are pinned by commit;
-- reach the deploy job, which is in a file that no pull request triggers;
-- publish anything.
-
-A page is data because nothing a page says reaches Jx as a template. Jx evaluates every string that holds `${` as JavaScript, and its parser makes inert only the text of a page, not what becomes an attribute (a link address, a URL, a raw HTML attribute, a directive, the language of a fence) and not the strings that the layouts hand to components. So the build writes every `${` of a page inert itself, whatever the Markdown around it means: staging does it for the pages, the sidebar data is cleaned the same way, the configuration's text keys are refused when they hold one, and the catalog contract refuses one. The escaping of page titles and headings is kept. The seeded random corpus of `test/integration/jx-expressions-fuzz.test.ts` builds hostile pages with the real Jx and fails if any expression runs.
-
-## If a called deploy job is rejected
-
-The one thing that could not be tested before the first real run is whether the `deploy` job of `docs-publish.yml` can call `docs-deploy.yml` with `pages: write` and `id-token: write`. If GitHub rejects it, the only change is in `docs-publish.yml`: replace the job that has `uses:` by a job with the same `permissions`, `needs` and `if`, whose two steps are the SHA-pinned `configure-pages` and `deploy-pages` actions copied from `docs-deploy.yml`. The build side and the package do not change. This shape is documented, not shipped.
-
-## The workflow contract
-
-`docs-build.yml` sets `DOCUSYSTEM_WORKFLOW_CONTRACT: "1"`. The CLI compares it with the integer `WORKFLOW_CONTRACT` it implements and exits 3 on a mismatch, naming the `uses:` line to change. The contract changes only when the workflows and the CLI stop being able to work together: the command the workflow runs (`docusystem check --ci` from the site folder), the environment it sets, or the output path `<site>/dist`. See [Versioning](versioning.md#workflow-contract).
+- **The build job has a read-only token and no secret.** A pull request, a fork's included, can change `docs/`, and a project's repository can change what its submodule contains; none of that can reach a secret or a write permission.
+- **The deploy job runs no code of anyone's.** It is the only job with `pages: write` and `id-token: write`, and it hands the artifact the build job made to GitHub Pages.
+- **The submodules are fetched shallow, over https only** (`GIT_ALLOW_PROTOCOL=https`), and a pull request that edits `.gitmodules` cannot make the build run a hook: nothing in a submodule is executed.
+- **Installs run no scripts**: `npm ci --ignore-scripts`. The Jx packages are pinned exactly.
+- **A page of Markdown is data in the build.** Jx runs every string that holds `${` as JavaScript when it builds an attribute, so staging writes every `${` of a page inert, in every spelling, before Jx sees it, and the registry refuses the sequence in its own text keys. A pull request that changes only `docs/` cannot run code in the build.
+- **Markdown is not trusted on the published site**, which is served from avunu.net's domain. The lint refuses raw HTML, links, images and directives that run code or load another page; the output assertions refuse any built page that holds a script, an event handler, an unsafe address or an embedded page, and any published file that would run when opened, in every mode; and every page carries a Content-Security-Policy that names its own inline scripts by hash and refuses all others. See [the build pipeline](build-pipeline.md#the-content-security-policy).
+- **Callers pin `check-docs.yml` by commit**, and every action in every workflow is pinned by commit.
+- **The bump token is the only credential**, it lives in this repository alone, and it is limited to this repository.

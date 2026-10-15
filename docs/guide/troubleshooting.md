@@ -1,78 +1,67 @@
 ---
 title: Troubleshooting
-description: Messages the commands print, what causes them and how to fix them, and how to look inside a build when something is wrong.
-order: 6
-updated: 2026-10-06
+description: Messages the build prints, what causes them and how to fix them, and how to look inside a build when something is wrong.
+order: 5
+updated: 2026-10-15
 tags: [guide, troubleshooting, debugging]
 ---
 
-Every message starts with the stage that printed it (`preflight:`, `assemble:`, `stage:`, `lint:`, `nav:`, `jx:`, `postbuild:`, `assert:`, `contrast:`, `links:`, `overrides:` or `catalog:`). The exit code says which kind of problem it is: 1 a problem was found, 2 a usage error, 3 the environment. See [exit codes](../reference/command-line.md#exit-codes).
+Every message starts with the stage that printed it: `registry:`, `assemble:`, `stage:`, `lint:`, `nav:`, `jx:`, `postbuild:`, `assert:`, `contrast:`, `links:` or `check:`; the closing lines of a failed build start with `docs:`. A message about one project's documentation names the project and the file: `frappe-nix/docs/guide/x.md:12`. The exit code says which kind of problem it is: 1 a problem was found, 2 a usage error, 70 a crash. See [exit codes](../reference/command-line.md#exit-codes).
 
-## Node is too old
+## A project's folder is not checked out
 
 ```text
-docusystem: Node 20.11.0 is too old: @avunu/docusystem 0.1.0 needs Node 22.19.0 or newer (Bun 1.4 or newer also works). Install a current Node from https://nodejs.org/ and run it again.
+registry: error: other: documentation/user/ is not in /work/site-docs/projects/other; run `git submodule update --init projects/other` (or clone with --recurse-submodules)
 ```
 
-Exit 3, before any other work. The floor is the highest Node requirement among the Jx packages the system depends on. Install a current Node from [nodejs.org](https://nodejs.org/), or run the CLI with Bun 1.4 or newer: `bun --bun ./node_modules/.bin/docusystem check`. CI always uses Node 24.
+The registry lists the project but its submodule is empty. Run the command the message gives, or `git submodule update --init --depth 1`. When you are previewing one project from your own checkout, pass `--only <path> --source <path>=<dir>` instead, as [previewing](previewing.md) shows. If the folder exists but the Markdown folder is not in it, the `docs` setting of the project in `projects.json` is wrong, or the project's own `docs/` was moved.
 
-## The workflow contract does not match
+## The registry is invalid
 
-Exit 3. The reusable workflow exports the integer contract it was written for as `DOCUSYSTEM_WORKFLOW_CONTRACT`, and the installed package implements a different one, so the `uses:` pins and the package have drifted apart across a breaking change. The message names the two `uses:` lines to change. `npx @avunu/docusystem upgrade`, run in `docs-site/`, re-pins both callers to the tag of the installed version; or install the package release that matches the pin.
+```text
+registry: error: project frappe-nix: "path" is used by an earlier project
+```
 
-## Another docusystem process is running
-
-Exit 3, naming the process id. Two builds of one site would write the same `.docusystem/` folder, so a pid file in it (`.docusystem/lock`) lets only one run. A lock whose process is gone is replaced automatically. A running `docusystem dev` holds the lock only while it builds.
-
-## `init` cannot resolve the workflow commit
-
-`init` and `upgrade` pin the workflows to the commit of the tag `v<installed version>`, read with `git ls-remote`. When that fails (offline, or the tag does not exist on GitHub) they exit 1 and name `--workflow-sha`. Pass the 40-character commit yourself: `npx @avunu/docusystem init --workflow-sha <COMMIT_SHA>`. They never fall back to a tag, because a tag can move.
-
-## `init` refuses to write a file
-
-`init` never overwrites what it would have to guess about:
-
-- A workflow that differs from its scaffold, including a copy of the earlier starter's long workflow.
-- A `package.json` with a `postinstall` script, or with a dependency on any `@jxsuite/*` package. That is a copy of the earlier starter, and the new shell has neither.
-
-Read what is there, then pass `--force` to let `init` replace it. `--dry-run` shows the diff first. For a repository that copied the starter's `docs-site/`, the whole path is in [Migrating from the earlier starter](migrating-from-the-starter.md).
+`projects.json` is read first and every problem in it is printed at once, each naming the project it belongs to, before anything is built. The rules are in [the registry](../reference/registry.md#validation).
 
 ## "K document problem(s) above fail the build"
 
 ```text
-docusystem: 3 document problem(s) above fail the build. Fix the documents, or run with --lenient while you work through them.
+docs: 3 document problem(s) above fail the build. Fix the documents, or run with --lenient while you work through them.
 ```
 
-The strict build (`CI=true`, and always `check`) collects every document problem before it stops: lint errors, Jx output lines that start with `Content`, `Warning:` or `Error`, and skipped symbolic links. They are printed once, above this line, with `file:line` where there is one, and nothing is published. Fix them in the Markdown. While you work through a long list locally, `docusystem build --lenient` prints the same problems as warnings and still builds. CI has no lenient setting.
+The strict build (`CI=true`, and always `check`) collects every document problem before it stops: lint errors, Jx output lines that start with `Content`, `Warning:` or `Error`, and skipped symbolic links. They are printed once, above this line, with `file:line` where there is one, and nothing is published. Fix them in the Markdown. While you work through a long list locally, `node build/cli.js build --lenient` prints the same problems as warnings and still builds. CI has no lenient setting.
 
-Problems that are never downgraded, even by `--lenient`: a config error, a failing `jx`, a failed output assertion and the contrast gate. A lenient build can therefore print warnings and still fail on an assertion. The `assert:` line names the page and its Markdown file, and the closing lines say that leniency does not reach it: if a `lint:` warning above is about the same file, that warning is the cause (see [an empty link](#an-empty-link-fails-the-build)).
+Problems that are never downgraded, even by `--lenient`: a registry error, a failing `jx`, a failed output assertion and the contrast gate. A lenient build can therefore print warnings and still fail on an assertion. The `assert:` line names the page and its Markdown file, and the closing lines say that leniency does not reach it: if a `lint:` warning above is about the same file, that warning is the cause (see [an empty link](#an-empty-link-fails-the-build)).
 
 ## A link is plain text on the page
 
-The build named the link. Its target does not exist, is a draft, or is not in the repository. Links to repository files outside `docs/` are rewritten to GitHub links, so this is a typo or a draft. The build prints the file and target, and with `links: "error"` (strict) Jx itself exits non-zero and lists every broken link.
+The build named the link. Its target does not exist, is a draft, or is not in the repository. Links to repository files outside `docs/` are rewritten to GitHub links, so this is a typo or a draft. The build prints the file and target, and in a strict build Jx itself exits non-zero and lists every broken link.
+
+A link to another project's page is checked only when it is site-relative (`/frappe-nix/docs/production/`). A full `https://docs.avunu.net/...` address is not checked, so a typo in one is not caught.
 
 ## Reference-style links or footnotes are an error
 
-The `lint:` stage reports them as errors with `file:line`: "Reference-style links are not rendered: every link that uses this definition loses its text. Write the links inline" and "Footnotes are not rendered: the marker and the note both disappear". The site cannot show them and would lose text. Write the links inline, `[text](url)`, and put a footnote in the sentence or in a callout. See [what does not render](writing-docs.md#what-does-not-render). `docusystem lint` runs just these checks.
+The `lint:` stage reports them as errors with `file:line`: "Reference-style links are not rendered: every link that uses this definition loses its text. Write the links inline" and "Footnotes are not rendered: the marker and the note both disappear". The site cannot show them and would lose text. Write the links inline, `[text](url)`, and put a footnote in the sentence or in a callout. See [what does not render](writing-docs.md#what-does-not-render).
 
 ## Raw HTML, a link or a file is refused
 
 ```text
-lint: error: docs/guide/x.md:12  <iframe> is not allowed in documentation: it embeds another page. ...
-assert: FAIL: pages hold something that runs code or embeds another page: /docs/guide/x/ (<img onerror="...">)
-assert: FAIL: files linked from the Markdown would run on the site's domain when opened: /content/docs/a.html (a .html file, ...)
+lint: error: frappe-nix/docs/guide/x.md:12  <iframe> is not allowed in documentation: it embeds another page. ...
+assert: FAIL: pages hold something that runs code or embeds another page: /frappe-nix/docs/guide/x/ (<img onerror="...">)
+assert: FAIL: files linked from the Markdown would run on the site's domain when opened: the linked file (a .html file, ...)
 ```
 
-The pages are served from the project's own domain, so a page may not carry a script, an event handler, an embedded page, a `javascript:` or `data:` address, or an HTML or script file. The `lint:` line names the file and line; the `assert:` lines name the page and the construct and are never downgraded by `--lenient`. Fix the Markdown: use Markdown for what it can say, an image file for a drawing, a link for a video or a page, and backticks for a tag or a `:name` that is only text. See [Raw HTML, addresses and files](writing-docs.md#raw-html-addresses-and-files). The `assert:` line `pages without a sound Content-Security-Policy` means a page has something before its `<head>` that a policy cannot govern, or no `<head>` of its own; the package's layouts never do that, so look at the layout override that wrote the page.
+The pages are served from avunu.net's own domain, so a page may not carry a script, an event handler, an embedded page, a `javascript:` or `data:` address, or an HTML or script file. The `lint:` line names the file and line; the `assert:` lines name the page and the construct and are never downgraded by `--lenient`. Fix the Markdown: use Markdown for what it can say, an image file for a drawing, a link for a video or a page, and backticks for a tag or a `:name` that is only text. See [Raw HTML, addresses and files](writing-docs.md#raw-html-addresses-and-files). The `assert:` line `pages without a sound Content-Security-Policy` means a page has something before its `<head>` that a policy cannot govern, or no `<head>` of its own; the shell's layouts never do that, so the change that caused it is in `site/`.
 
 ## An empty link fails the build
 
-The `assert:` stage prints `FAIL` for the assertion that no page has an empty link (an `<a href>` with no text, image or `aria-label`). Jx writes an empty link followed by the text (or the image) for a raw HTML anchor in a paragraph (an anchor inside a `<div>` or `<p>` block keeps its link), and the assertion fails in every mode, including `--lenient`. The `lint:` stage reports the anchor first, with `file:line` (an error, printed as a warning under `--lenient`), and `docusystem lint` lists it without building. Replace the raw anchor with a Markdown link, `[text](url)`. Badges are `[![alt](image)](url)`.
+The `assert:` stage prints `FAIL` for the assertion that no page has an empty link (an `<a href>` with no text, image or `aria-label`). Jx writes an empty link followed by the text (or the image) for a raw HTML anchor in a paragraph (an anchor inside a `<div>` or `<p>` block keeps its link), and the assertion fails in every mode, including `--lenient`. The `lint:` stage reports the anchor first, with `file:line` (an error, printed as a warning under `--lenient`). Replace the raw anchor with a Markdown link, `[text](url)`. Badges are `[![alt](image)](url)`.
 
 ## A `${...}` in a link or a tag is an error
 
 ```text
-lint: error: docs/x.md:12  A ${...} in a link address, a URL, an HTML tag, a directive or the language of a code fence is run by Jx as JavaScript when the site is built. ...
+lint: error: frappe-nix/docs/x.md:12  A ${...} in a link address, a URL, an HTML tag, a directive or the language of a code fence is run by Jx as JavaScript when the site is built. ...
 ```
 
 Jx runs every string that holds `${` as JavaScript when it builds a link, an image or an HTML attribute. The build therefore writes the text inert (a hidden zero-width space between `$` and `{`), so nothing runs, but the link or attribute no longer says what you wrote, and the strict build fails so that you and the reviewer see it. Write the address as `%24%7B...%7D`, or put the text in a code span or a code block, where `${HOME}` stays as written. See [what does not render](writing-docs.md#what-does-not-render).
@@ -80,22 +69,22 @@ Jx runs every string that holds `${` as JavaScript when it builds a link, an ima
 ## A symbolic link is not published
 
 ```text
-stage: docs/x.md is a symbolic link outside the repository: not published
+stage: frappe-nix/docs/x.md is a symbolic link that does not resolve: not published
 ```
 
-A symbolic link in `docs/`, `overrides/` or `public/` is followed only when its real path is inside the repository and not inside `.git/`, `node_modules/`, or the site's own `.docusystem/` and `dist/`. Anything else is skipped and reported, and under strict a skipped link is an error. Copy the file in, or move it into the repository. Nothing the build writes is a symbolic link.
+A symbolic link in a project's `docs/` is followed only when its real path is inside the project's repository and not inside `.git/`, `node_modules/` or the build's own `.site-docs/` and `dist/`. Anything else is skipped and reported, and in a strict build a skipped link is an error. Copy the file in, or move it into the repository. Nothing the build writes is a symbolic link.
 
 ## Jx dropped routes
 
-The build parses `Done: N routes` from Jx and expects the number of pages plus the static pages (normally two: the landing page and 404). A smaller number means Jx left pages out and is reported as a problem. Look for a file name that produces an address Jx and the sidebar disagree on: rename it to plain letters, digits, spaces and hyphens. Two files with one address (`docs/guides.md` beside `docs/guides/README.md`) are also reported, and only the README is published.
+The build parses `Done: N routes` from Jx and expects the number of pages of every project plus the static pages of the shell (the home page and the 404 page). A smaller number means Jx left pages out and is reported as a problem. Look for a file name that produces an address Jx and the sidebar disagree on: rename it to plain letters, digits, spaces and hyphens. Two files with one address (`docs/guides.md` beside `docs/guides/README.md`) are also reported, and only the README is published.
 
-## The slug is not the catalog's spelling
+## A project's own check is green but the site build is red
 
-`preflight` compares `slug` with the bundled catalog. A key spelled differently from a catalog key (`erpnext-taskview` for `erpnext_taskview`) is an error, because the project switcher would never mark the project as the current one. The slug keeps the catalog's underscores; the domain uses hyphens. A slug that is not in the catalog at all is only a warning: the project is not in avunu.net's catalog yet.
+The project's `docs.yml` checks its documentation with the other projects at the commits pinned in this repository at the commit its `ref` names. The site build uses the pointers of the bump pull request, so it can fail when a bump moves a project that another project links to, or when this repository's tool changed. The failing step in the log names the page. The fix belongs in the project whose page it is: see [operations](../maintainers/operations.md#when-a-bump-pull-request-fails).
 
-## A Bun lockfile
+## A change to `docs/` is not on the site
 
-`docusystem doctor` reports a `bun.lock` or `bun.lockb` in the site folder as an error, and the reusable workflow refuses it. The shared workflow installs with npm so that Dependabot can read the lockfile and so that the provenance of `@avunu/docusystem` can be verified. Run `npm install` in the site folder, commit `package-lock.json` and delete `bun.lock`. You can still run the CLI under Bun locally.
+The site shows the commit that the project's pointer in this repository records, not the project's branch. Check, in order: the change is merged in the project's repository; the project has released since (a project with releases is bumped to its latest release only); the Bump projects workflow has run and its pull request has merged; the deploy run after the merge passed. See [adding a project](adding-a-project.md#how-documentation-reaches-the-site).
 
 ## Sharp fails to load on NixOS
 
@@ -103,66 +92,27 @@ The build parses `Done: N routes` from Jx and expects the number of pages plus t
 Sharp is required for image optimization but failed to load
 ```
 
-The native `sharp` module cannot find the C++ library (`libstdc++.so.6`) as soon as `docs/` contains an image. Either turn off raster-image optimization with `"images": "off"` in `docusystem.config.json`, which needs no native module, or provide the library for the command:
+The native `sharp` module cannot find the C++ library (`libstdc++.so.6`) as soon as a project's `docs/` contains an image. Provide the library for the command:
 
 ```bash
-LD_LIBRARY_PATH="$(nix eval --raw nixpkgs#stdenv.cc.cc.lib.outPath)/lib" npm run build
+LD_LIBRARY_PATH="$(nix eval --raw nixpkgs#stdenv.cc.cc.lib.outPath)/lib" node build/cli.js build
 ```
 
-The build prints the `images: "off"` hint itself when Jx's output mentions `sharp` or `libstdc++`. Ubuntu CI is not affected.
-
-## `dev` says the port is in use
-
-`docusystem dev` binds only to `127.0.0.1`. Pass another port: `npm run dev -- --port 3417`. It exits 1 when the first build fails or the port is busy.
+The build prints a hint when Jx's output mentions `sharp` or `libstdc++`. Ubuntu CI is not affected.
 
 ## Hooks rewrite `docs/`
 
-A pre-commit hook that stamps a copyright comment above the front matter does not break the build, because staging moves the comment, but GitHub and Obsidian then show the front matter as text. Exclude `^docs/` from that hook. `docusystem doctor` warns about a `.pre-commit-config.yaml` with a copyright hook and mentions formatter configs that would reformat `docs/`.
-
-The files that `init` writes are meant to pass the repository's own format check as they are, so that the pull request that adopts the system does not turn the repository's CI red:
-
-- The caller workflows list their `paths:` one entry per line. A one-line list is re-wrapped by oxfmt and prettier as soon as it is wider than their print width, and a block list is stable at any width and with any quote style.
-- The two JSON files of the site folder are indented the way the repository asks for JSON: `useTabs` and `tabWidth` in `.oxfmtrc.json` or `.prettierrc`, else `.editorconfig`, else the indentation of the root `package.json`, else two spaces. An existing file keeps its own.
-
-`init` can only read what is written down. A formatter that is configured in a script, or by a rule `init` does not know, can still disagree. If the repository's format check fails on `docs-site/` or on the two workflows, run the formatter over them once (`npx oxfmt docs-site .github/workflows`), or leave the folder alone by ignoring it, for example `"ignorePatterns": ["docs-site"]` in `.oxfmtrc.json`. The site folder holds only the config, `package.json`, the lockfile and the git-ignored `dist/` and `.docusystem/`, so nothing is lost by ignoring it. Keep the lockfile out of the formatter in any case (`package-lock.json` is in most `ignorePatterns` already).
-
-## A leftover from the starter
-
-`preflight` warns when the site folder contains `components/`, `layouts/`, `pages/`, `project.json`, `scripts/`, `data/`, `docs.config.json`, `README.md`, or a `public/` that holds copies of the package's own files (its fonts, brand marks and favicon), which are leftovers of an earlier copy-the-template starter. Delete them: the package supplies all of them, and the configuration is `docusystem.config.json` now. If you want to change one, use [an override](overrides.md). A `public/` of your own (a logo, an og image) is not a leftover. `doctor` lists the leftovers in one warning, adds a warning for the starter's `engines.bun` entry and an error for `bun.lock`, and `init` prints the same list. The steps are in [Migrating from the earlier starter](migrating-from-the-starter.md).
-
-## `public/CNAME` is not allowed
-
-```text
-assemble: public/CNAME is not allowed: the file is generated from `domain` in docusystem.config.json, delete it
-```
-
-The starter committed a `CNAME`; the package writes it from `domain` on every build. Delete `docs-site/public/CNAME`. If the starter's whole `public/` folder is still there, `check` also warns that it holds copies of the package's own files and, because each one replaces the package's file, prints an `overrides:` line for every copy: delete the folder unless it holds files you added.
+A pre-commit hook that stamps a copyright comment above the front matter does not break the build, because staging moves the comment, but GitHub and Obsidian then show the front matter as text. Exclude `^docs/` from that hook, and keep a formatter from reflowing the Markdown: the lint reports lines by number, and a reformatted file moves them.
 
 ## Looking inside a build
 
-When something is wrong and the message is not enough, the build keeps everything it did:
+When something is wrong and the message is not enough, the build keeps everything it did in `.site-docs/` at the workspace root, which git ignores:
 
-- `docs-site/.docusystem/manifest.json` records the package and Jx versions, where each file of the assembled root came from, shadowed and added files, the catalog source and whether the build was strict.
-- `docs-site/.docusystem/jx.log` is the raw output of the last Jx run.
-- `docs-site/.docusystem/site/` is the assembled Jx project, with the staged Markdown in `.generated/docs/` and the sidebar in `.generated/nav.json`.
-- `npx @avunu/docusystem info`, run in `docs-site/`, prints versions, folders, the resolved branch, overrides and the exact command to run Jx by hand; `--json` and `--nav` print it as JSON and the sidebar tree.
-- When Jx fails, the build prints `docusystem: jx build failed. The assembled project is <root>; run: <execPath> <jx.js> build <root>`.
+- `.site-docs/jx.log` is the raw output of the last Jx run.
+- `.site-docs/site/` is the assembled Jx project: the shell's files, the generated `project.json`, the catalog in `data/`, each project's two pages in `pages/<path>/`, the staged Markdown in `.generated/docs/<path>/docs/`, each project's sidebar in `.generated/nav/<path>.json` and its facts in `.generated/config/<path>.json`.
+- When Jx fails, the build prints `docs: jx build failed. The assembled project is <root>; run: <node> <jx.js> build <root>`. Run that command to see Jx's own output again.
 
-To see what Jx itself prints for the assembled root, run it through the pinned Jx, in `docs-site/`:
-
-```bash
-cd docs-site
-npx @avunu/docusystem jx build --verbose
-```
-
-From the repository root, run the installed copy instead: `./docs-site/node_modules/.bin/docusystem jx build --verbose` finds `./docs-site` on its own, and `--site <folder>` names another site folder.
-
-`docusystem jx` assembles the project root (docusystem itself builds nothing), then runs the pinned Jx CLI as `jx <arguments> <root>`. Everything after `jx` goes to Jx unchanged, so give `--site` before it. It exits with Jx's exit code. The root is assembled from empty on every run, so what Jx writes into it lasts only until the next docusystem command, and `jx build` writes to `<root>/dist`, not to `<site>/dist`, and skips the post-build steps.
+The root is assembled from empty on every run, so anything you change in it lasts only until the next build, and `jx build` run by hand writes to `.site-docs/site/dist`, not to `./dist`, and skips the post-build steps.
 
 > [!WARNING]
-> `jx validate` does not work on the generated root, so `docusystem jx validate` is not a check to run. It fails with `project.schema.json not found` and tells you to run `jx schema`, and `docusystem jx schema` cannot help: the next `docusystem jx` run assembles the root again and the schema is gone. Run by hand after `jx schema`, Jx's validator reports the package's own pages and layouts as invalid, because its schema for a `Function` entry has no `timing` key and the package's pages use `timing: "compiler"`, which Jx's compiler accepts. Nothing in that report is yours to fix. Use `docusystem check` for the checks that apply to a site.
-
-> [!NOTE]
-> Jx Studio and `jx dev` are not supported on the assembled root. The Markdown lives outside the Jx project root, `jx dev` needs the optional `@jxsuite/server` package and Bun, and it skips the post-build fixes. `docusystem dev` serves exactly what deploys.
-
-In CI, a failed run uploads the manifest, the Jx log and the assembled project as the artifact `docusystem-debug`. Download it, and read `manifest.json` and `jx.log` first.
+> Jx's own `validate` command does not work on the assembled root. It fails with `project.schema.json not found`, and when run after `jx schema` its validator reports the shell's own pages and layouts as invalid, because its schema for a `Function` entry has no `timing` key and the shell's pages use `timing: "compiler"`, which Jx's compiler accepts. Nothing in that report is yours to fix. Use `check` for the checks that apply to the site.

@@ -1,199 +1,64 @@
-# @avunu/docusystem
+# site-docs
 
-The documentation system shared by every Avunu open-source project: a command line that builds a project's Markdown into its documentation site, and the reusable GitHub Actions workflows that check and publish it.
+The documentation of every Avunu open-source project, in one site: [docs.avunu.net](https://docs.avunu.net).
 
-A project keeps its Markdown in `docs/` and a small `docs-site/` folder. Everything else comes from this package: the layouts, components, design tokens, fonts, navigation, the Markdown and link checks, the project switcher, search, light and dark themes, and the GitHub Pages deployment. The site is built with [Jx](https://jxsuite.com), the framework behind avunu.net.
+Each project keeps its Markdown in its own `docs/` folder. This repository holds every project as a git submodule, builds all of those folders into one [Jx](https://jxsuite.com) site (the framework behind avunu.net) with one look, one search and one project menu, checks it, and publishes it to GitHub Pages. A project's documentation is at `https://docs.avunu.net/<path>/`, for example `https://docs.avunu.net/frappe-nix/docs/`.
 
-> [!NOTE]
-> The package is before 1.0: a minor release may break anything except the workflow-contract rule described under [Versioning](#versioning). Callers pin an exact commit, so nothing changes until a pull request is merged.
+The full documentation is in [`docs/`](docs/README.md), written so that it builds with this very repository: it is the documentation of the project `site-docs`.
 
-The full documentation is in [`docs/`](docs/README.md), written so that it builds with this very package.
+## What is here
+
+```text
+projects.json            the registry: which projects, and under which path
+.gitmodules              where each project's repository is
+projects/<path>/         one git submodule per project, pinned to a commit
+site/                    the Jx project that gives every page its look
+src/                     the build: reads the registry, builds one site, checks it
+docs/                    this repository's own documentation
+verify/                  the browser suites (axe, CSP, keyboard) for the built site
+scripts/                 the scripts the workflows run: the bump of submodule pointers, the title check
+.github/workflows/       bump, check a project, build and deploy, and this repository's CI
+```
 
 ## Quick start
 
-From the root of a repository whose `origin` remote points at GitHub, with Node 22.19.0 or newer (or Bun 1.4 or newer) and `git`:
+```bash
+git clone --recurse-submodules https://github.com/Avunu/site-docs
+cd site-docs
+npm ci --ignore-scripts
+npm run build
+node build/cli.js build
+```
+
+You need Node 22.19.0 or newer (CI uses 24). The command writes the whole site to `dist/`; serve it with any static file server:
 
 ```bash
-npx @avunu/docusystem init --from-readme
-cd docs-site && npm install
-npm run check
+python3 -m http.server --directory dist 8000
 ```
 
-1. `init` reads the `origin` remote and the Avunu project catalog, writes the files below, adds the Dependabot entries and prints what a maintainer still has to set in GitHub and DNS. `--from-readme` starts `docs/` from the repository's README when `docs/` has none.
-2. `npm install` creates `package-lock.json`. Commit it: CI installs it frozen.
-3. `npm run check` is what CI runs. The site is written to `docs-site/dist/`.
-
-`npm run dev` serves the site on `127.0.0.1:3000` the way GitHub Pages will, rebuilds when the Markdown changes and reloads the browser. `npx @avunu/docusystem doctor`, run in `docs-site/`, is the maintainer checklist as a command.
-
-A repository that already has a `docs-site/` copied from the earlier starter: see [Migrating from the earlier starter](docs/guide/migrating-from-the-starter.md). `init` reads the starter's `docs.config.json`, so the published domain is kept.
-
-### Requirements
-
-| What                                            | Needs                                      |
-| ----------------------------------------------- | ------------------------------------------ |
-| `build`, `check`, `dev` and every other command | Node 22.19.0 or newer, or Bun 1.4 or newer |
-| Operating system                                | Linux or macOS. Windows is not supported   |
-| `init` and `upgrade`                            | `git` on the `PATH`                        |
-| The reusable workflows                          | A GitHub-hosted runner; nothing to install |
-
-CI and deployments always use Node 24 and npm. The Node floor is derived from the Jx packages this one depends on.
-
-## The files of a project
-
-```text
-your-repo/
-  docs/                              your Markdown (README.md is the home page)
-  docs-site/
-    docusystem.config.json           the seven facts about the project
-    package.json                     one dependency: @avunu/docusystem
-    .gitignore                       node_modules/, dist/, .docusystem/
-    package-lock.json                generated by npm install; committed
-  .github/
-    workflows/docs.yml               pull requests: check the site (read-only token)
-    workflows/docs-publish.yml       default branch: build, and publish once enabled
-    dependabot.yml                   keeps the package and the workflow pin current
-```
-
-That list is closed: a project that needs more has an [override](#customizing), not another file. [`examples/basic`](examples/basic) is a complete adopting repository. A shell must not contain `components/`, `layouts/`, `pages/`, `project.json`, `data/`, fonts, scripts, tests, a `docs.config.json`, a `bun.lock`, a committed `CNAME`, any `@jxsuite/*` dependency or an install script.
-
-If the repository has a `dependabot-auto-merge.yml`, `init` patches the condition of its job (the actor or the pull request's author is Dependabot, on one line or folded) so that pull requests for the docs site, and the ones that move the pin of the shared workflows, stay under a person's review: a merge to the default branch publishes the site.
-
-### What a maintainer does once
-
-None of this can be done from a pull request. `init` and `docusystem doctor` print it with the project's values filled in.
-
-1. GitHub Pages source: GitHub Actions.
-2. The domain `avunu.net` verified for the GitHub organization (once, not per repository), before any DNS record: otherwise another account can claim the subdomain if the site is ever unpublished while its record remains.
-3. The custom domain (the repository name with hyphens, then `.avunu.net`), and Enforce HTTPS once the certificate exists.
-4. DNS: `CNAME <label> -> avunu.github.io`, DNS only until the certificate exists.
-5. The repository variable `DOCS_SITE_ENABLED` set to `true`. Until then the publish workflow only builds and checks.
-6. Branch protection on the default branch, because every push to it publishes.
-7. `docs: https://<domain>` in the project's avunu.net catalog entry.
-
-When a site is retired, its `CNAME` goes first. See [Publishing](docs/guide/publishing.md).
-
-## Configuration
-
-`docs-site/docusystem.config.json` holds seven required keys. `init` infers and writes them.
-
-| Key        | Meaning                                                                                                           |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| `name`     | Display name: header, page titles and footer. 1 to 80 characters                                                  |
-| `tagline`  | One sentence on the landing page and the default page description. 1 to 200 characters                            |
-| `slug`     | The project's key in avunu.net's `projects.json` (underscores allowed); marks the current project in the switcher |
-| `platform` | `frappe`, `odoo`, `wordpress`, `nixos` or `general`                                                               |
-| `repo`     | `https://github.com/<owner>/<repo>`: the header link, Edit this page and repository links                         |
-| `domain`   | The custom domain without a scheme, normally the repository name with hyphens, then `.avunu.net`                  |
-| `license`  | An SPDX license identifier                                                                                        |
-
-Optional keys:
-
-| Key      | Meaning                                                                                                                        |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `branch` | The default branch for Edit this page and GitHub links. Normally absent: `$DOCUSYSTEM_BRANCH`, then `origin/HEAD`, then `main` |
-| `docs`   | The Markdown folder, relative to the config file. Default `../docs`; it must lie inside the repository                         |
-| `theme`  | Design-token overrides: `theme.light` and `theme.dark`. Unknown tokens are errors and `check` re-runs the contrast gate        |
-| `images` | `"optimize"` (default) or `"off"`, which skips raster-image optimization and the native `sharp` module                         |
-| `jx`     | An unsupported escape hatch merged into the generated Jx `project.json`                                                        |
-
-An unknown key is an error with a suggestion, all problems are reported at once, and the schema is exported as `@avunu/docusystem/config.schema.json` for editors. See the [configuration reference](docs/reference/configuration.md).
-
-## Writing the docs
-
-The conventions work on GitHub, in Obsidian and on the site at once.
-
-- `docs/README.md` (or `index.md`) is the home page and is required. Every other `.md` file is a page at `/docs/<path>/`. A folder is a sidebar section; its `README.md` is the section's Overview. Names that start with `.` or `_` are ignored.
-- Front matter is optional: `title`, `description`, `nav_title`, `order`, `hidden`, `draft`, `publish`, `updated` and `tags`. A field of the wrong type fails the CI build.
-- Callouts are GitHub alerts: `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]` and `[!CAUTION]`.
-- Link to pages by file, relative to the current file, with `%20` for spaces. A link to a repository file that is not a page becomes a GitHub link. A link to a page that does not exist fails the CI build.
-- Give every code block a language. A language the highlighter does not know is shown as plain code, with a warning.
-- Reference-style links and footnotes are lint errors (the site would lose text), and so is a raw `<a href>` in a paragraph, around text or an image: Jx leaves an empty link, which fails every build, `--lenient` included. Inline HTML, task lists and table alignment are warnings. A `${...}` in a link address, a URL, an HTML tag or a directive is an error: Jx would run it as JavaScript, so the build writes it inert and the link does not say what you wrote.
-- Raw HTML may use only text, table and image elements. A `<script>`, `<iframe>` or `<form>`, an `on...` event handler or `style` attribute, a `javascript:` or `data:` address, an HTML or script file linked from a page and a `:script[...]` directive are errors (the pages are served from the project's domain), and every page carries a Content-Security-Policy. See [Raw HTML, addresses and files](docs/guide/writing-docs.md#raw-html-addresses-and-files).
-
-`CI=true` makes every document problem fail the build, and `check` is always strict. While you work through a first pass, `docusystem build --lenient` reports them as warnings. See [Writing documentation](docs/guide/writing-docs.md).
-
-## Customizing
-
-Use the cheapest rung that works. Each rung below the first costs some ability to follow package updates, and every override is printed on every build.
-
-| Rung | Mechanism                                                                                   | Follows updates        |
-| ---- | ------------------------------------------------------------------------------------------- | ---------------------- |
-| 0    | The config keys above                                                                       | Yes                    |
-| 1    | `theme.light` and `theme.dark` tokens, checked for contrast                                 | Yes                    |
-| 2    | Files in `docs-site/public/` (favicon, logo, og image)                                      | Yes                    |
-| 3    | Files in `docs-site/overrides/{components,layouts,pages}/`, started with `docusystem eject` | No, for replaced files |
-| 4    | The `jx` fragment in the config                                                             | No                     |
-| 5    | A change to `site/` in this repository, by pull request                                     | Yes, for everyone      |
-
-`docusystem eject components/docs-footer.json` copies a package file into `overrides/` and records where it came from; `docusystem doctor` reports when the package's file has changed since. Overrides and the `jx` fragment are outside semver. See [Customizing](docs/guide/overrides.md).
-
-## The command line
-
-| Command   | Purpose                                                                                 |
-| --------- | --------------------------------------------------------------------------------------- |
-| `init`    | Write the shell of a docs site into a repository                                        |
-| `build`   | Build the site into `<site>/dist`; `--strict`, `--lenient` and `--refresh-catalog`      |
-| `check`   | What CI runs: a strict build, the contrast gate and a link crawl; `--ci`                |
-| `dev`     | Serve the site and rebuild when the Markdown changes; `--port <n>`                      |
-| `lint`    | The Markdown checks only, as `file:line` messages                                       |
-| `links`   | Crawl an already built site                                                             |
-| `info`    | Versions, folders, overrides and the exact command to run Jx by hand; `--json`, `--nav` |
-| `doctor`  | The maintainer checklist, offline; `--json`                                             |
-| `upgrade` | Re-pin the workflows to the installed version                                           |
-| `eject`   | Copy package files into `overrides/`                                                    |
-| `jx`      | Run the pinned Jx CLI on the assembled project, for debugging                           |
-
-Exit codes: 0 success, 1 a problem was found, 2 a usage error, 3 the environment (Node too old, a workflow contract mismatch, or another docusystem running). See the [command reference](docs/reference/command-line.md).
-
-> [!IMPORTANT]
-> Run the commands in the site folder, `docs-site/`, as `npx @avunu/docusystem <command>` (or from its `npm run` scripts), so that you get the copy the site has installed. Always write the scope. The unscoped name `docusystem` is not this package: in a folder where the package is not installed, `npx` with the bare name fetches and runs whatever package owns it.
-
-## Upgrading
-
-The package is the only dependency a docs site lists, and it pins the exact Jx packages it was tested with. A new release arrives as one grouped Dependabot pull request, and a new workflow pin as another; a person reviews and merges them, and the merge publishes. By hand:
+To preview one project's documentation from your own working copy, without the other projects:
 
 ```bash
-cd docs-site
-npm update @avunu/docusystem
-npx @avunu/docusystem upgrade
-npm run check
+node build/cli.js build --lenient --only frappe-nix --source frappe-nix=../frappe-nix
 ```
 
-`upgrade` re-pins both `uses:` lines of both caller workflows to the commit of the tag of the installed version and appends missing Dependabot entries; it changes nothing else. Run `docusystem doctor` afterwards. See [Upgrading](docs/guide/upgrading.md).
+`node build/cli.js check` is what CI runs: a strict build, a colour-contrast check and a crawl of every link. `npm run docs:build` and `npm run docs:check` run the two commands. See [previewing](docs/guide/previewing.md) and [the command line](docs/reference/command-line.md).
 
-## Versioning
+## How a project gets here and stays current
 
-[Semantic Versioning](https://semver.org), driven by [Conventional Commits](https://www.conventionalcommits.org) and release-please.
+- A maintainer adds the project to `projects.json` and as a submodule, in one pull request: [adding a project](docs/guide/adding-a-project.md).
+- A scheduled workflow moves each submodule to its project's latest release, or to the head of its default branch while the project has none, and opens one pull request for all of them. No secret is stored in the project repositories.
+- Each project can check its own pull requests against the site with one small reusable workflow, before it merges them.
+- A push to the default branch builds the site and publishes it. See [workflows](docs/reference/workflows.md).
 
-- **Major:** a removed or renamed command or option; a changed exit code; a removed or renamed config key, or a newly required one; a removed or renamed design token; a removed or renamed file under `site/{components,layouts,pages,public}` or a custom-element tag; a changed page URL scheme, `search-index.json` shape or sitemap structure; a Markdown convention that stops working (GitHub alerts, relative `.md` links, repository-link rewriting, the front-matter keys); a changed input, permission or job name of a reusable workflow; a higher Node floor; a change to the programmatic exports.
-- **Minor:** new commands, options, optional config keys, components, layouts or tokens; a Jx upgrade that authors and readers cannot see; visual refinements that keep every token, URL and region.
-- **Patch:** fixes, dependency bumps (including Jx) that change nothing above, and catalog refreshes.
-- **Outside semver:** the contents of `site/` files, everything under `overrides/`, the `jx` fragment, `manifest.json`, `jx.log` and human-readable output.
+## Writing documentation for the site
 
-The workflows and the package share one integer, the workflow contract. The CLI exits 3 when they disagree and names the `uses:` line to change. See [Versioning and compatibility](docs/reference/versioning.md).
-
-## Troubleshooting
-
-| Symptom                                                                                              | Cause and fix                                                                                                                                                                                                              |
-| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exit 3: "Node ... is too old"                                                                        | The Node floor is 22.19.0. Install a current Node, or run with Bun 1.4 or newer                                                                                                                                            |
-| Exit 3 naming `uses:` lines                                                                          | The workflow pin and the installed package disagree on the workflow contract. Run `npx @avunu/docusystem upgrade` in `docs-site/`                                                                                          |
-| Exit 3 naming a process id                                                                           | Another docusystem holds the site's lock. Wait, or stop that process                                                                                                                                                       |
-| `doctor` errors on `bun.lock`, or the workflow refuses it                                            | The shared workflow installs with npm. Run `npm install`, commit `package-lock.json` and delete `bun.lock`                                                                                                                 |
-| "K document problem(s) above fail the build"                                                         | A strict build collects every document problem and publishes nothing. Fix them, or use `docusystem build --lenient` locally while you work through them                                                                    |
-| "Sharp is required for image optimization but failed to load" (`libstdc++`), for example on NixOS    | Set `"images": "off"` in the config, or provide the library with `LD_LIBRARY_PATH` for the command                                                                                                                         |
-| `stage: docs/x.md is a symbolic link outside the repository: not published`                          | Only symbolic links whose target is inside the repository are followed. Copy the file in; under strict the skip is an error                                                                                                |
-| An assertion fails: pages hold something that runs code, or files linked from the Markdown would run | A script, event handler, `javascript:` address, embedded page or HTML/script file in the docs. Use Markdown, an image file or a link. See [Writing documentation](docs/guide/writing-docs.md#raw-html-addresses-and-files) |
-| An assertion fails: no page has an empty link                                                        | A raw HTML `<a href>` produced an empty link. `docusystem lint` shows where; write `[text](url)`                                                                                                                           |
-| `init` exits 1 naming `--workflow-sha`                                                               | The tag of the installed version could not be resolved (offline, or no such tag). Pass the commit                                                                                                                          |
-| `check` warns of "a leftover of the copied starter", or `assemble: public/CNAME is not allowed`      | The site folder still has the starter's files. Delete them: see [Migrating from the earlier starter](docs/guide/migrating-from-the-starter.md)                                                                             |
-
-Looking inside a build: each build writes `docs-site/.docusystem/manifest.json` and `jx.log` and keeps the assembled Jx project in `docs-site/.docusystem/site/`. `docusystem info` prints the exact command to run Jx by hand, and `docusystem jx build --verbose` runs the pinned Jx build on the assembled project (`jx validate` does not work on it). Jx Studio and `jx dev` are not supported on it: the Markdown lives outside the Jx root, `jx dev` needs the optional server package and Bun, and it skips the post-build fixes. `docusystem dev` serves exactly what deploys. See [Troubleshooting](docs/guide/troubleshooting.md).
+A project writes plain Markdown in `docs/` with a `README.md` as its home page. The build fails in CI on a broken link, a missing image, Markdown the site cannot show faithfully, an empty link, and any script, event handler or `javascript:` address, and every page carries a Content-Security-Policy. [Writing documentation](docs/guide/writing-docs.md) lists the conventions and the few constructs that do not render.
 
 ## Licensing
 
-Code: MIT, Copyright (c) 2026 Avunu LLC; see [LICENSE](LICENSE). The fonts under `site/public/fonts/` (Figtree and JetBrains Mono) keep their own licenses, the SIL Open Font License 1.1, with the texts alongside. The Avunu name and logos are trademarks of Avunu LLC; the MIT license does not grant rights to them.
+Code: MIT, Copyright (c) 2026 Avunu LLC; see [LICENSE](LICENSE). The fonts under `site/public/fonts/` (Figtree and JetBrains Mono) keep their own licenses, the SIL Open Font License 1.1, with the texts alongside. The documentation of each project is under that project's own license. The Avunu name and logos are trademarks of Avunu LLC; the MIT license does not grant rights to them.
 
 ## Contributing and security
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [MAINTAINING.md](MAINTAINING.md) for the release runbook, and [SECURITY.md](SECURITY.md) for how to report a vulnerability.
+See [CONTRIBUTING.md](CONTRIBUTING.md), [MAINTAINING.md](MAINTAINING.md) for the maintainer's checklist, and [SECURITY.md](SECURITY.md) for how to report a vulnerability.

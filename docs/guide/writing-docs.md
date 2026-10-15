@@ -2,19 +2,19 @@
 title: Writing documentation
 description: The Markdown conventions that work on GitHub, in Obsidian and on the site, and the few constructs the site cannot render.
 order: 2
-updated: 2026-10-06
+updated: 2026-10-15
 tags: [guide, markdown, authoring]
 ---
 
-You write Markdown in `docs/` and nothing else. The conventions below work on GitHub, in Obsidian and on the published site at once, except where [what does not render](#what-does-not-render) says otherwise.
+You write Markdown in your project's `docs/` folder and nothing else. The conventions below work on GitHub, in Obsidian and on the published site at once, except where [what does not render](#what-does-not-render) says otherwise.
 
 ## Files and folders
 
-- `docs/README.md` (or `docs/index.md`, in any letter case) is the documentation home at `/docs/` and is required. When it is missing the build stops and says `cp README.md docs/README.md`.
-- Every other `.md` file is a page at `/docs/<path>/`: `docs/Install Steps.md` is `/docs/install-steps/`.
+- `docs/README.md` (or `docs/index.md`, in any letter case) is the documentation home at `/<project>/docs/` and is required. When it is missing the build stops with a message that names the project and the file. `<project>` is the project's `path` in [the registry](../reference/registry.md): `frappe-nix`, `data-steward`.
+- Every other `.md` file is a page at `/<project>/docs/<path>/`: `docs/Install Steps.md` of frappe-nix is `/frappe-nix/docs/install-steps/`.
 - A folder is a section of the sidebar. Its `README.md` (or `index.md`) is the section's "Overview".
 - Files and folders whose names start with `.` or `_`, and `node_modules`, are ignored.
-- The Markdown folder is `docs/` beside the site folder unless the config's [`docs` key](../reference/configuration.md#optional-keys) says otherwise. It must lie inside the repository.
+- The Markdown folder is `docs/` unless the project's [`docs` setting](../reference/registry.md#the-keys-of-a-project) in the registry names another one. It must lie inside the repository.
 - Images and downloads go anywhere under `docs/` and are linked relatively: `![Diagram](images/flow.png)`.
 - A symbolic link is followed only when its target is inside the repository. Any other one is skipped and reported, and under strict that is an error (see [troubleshooting](troubleshooting.md#a-symbolic-link-is-not-published)).
 
@@ -34,7 +34,7 @@ Front matter is optional. Without it a page is titled by its first `# Heading` (
 | `updated`     | A date such as `2026-10-01`, shown under the title.                                        |
 | `tags`        | A list, shown under the title.                                                             |
 
-Other keys (the vault's `slug`, `category` or `status`, for instance) are not used by the site. A field of the wrong type (`draft: "yes"`, `order: "2"`) is reported by the build and fails it in CI: write `true` and `2`.
+Other keys (the vault's `slug`, `category` or `status`, for instance) are not used by the site. A field of the wrong type (`draft: "yes"`, `order: "2"`) is reported by the build and fails it in CI: write `true` and `2`. Front matter that is not valid YAML is an error: the page cannot be built.
 
 ```markdown
 ---
@@ -73,9 +73,10 @@ They render as callouts on the site and as alerts on GitHub.
 ## Links and images
 
 - Link to other pages by file, relative to the file you are in, with `%20` for a space: `[Configuration](guides/configuration.md#options)`, `[Install Steps](Install%20Steps.md)`. The site rewrites them to the page's address. A link to a heading uses the heading's anchor.
-- A link or image to a file of the repository that is not a page (a source file, `LICENSE`, another README, a folder of examples) becomes a link to it on GitHub, on the repository's default branch. That works whether you wrote it from `docs/` (`../worker/README.md`) or from the repository root, as in a README copied into `docs/` (`worker/README.md`). Each rewrite is listed in the build output.
+- A link or image to a file of the repository that is not a page (a source file, `LICENSE`, another README, a folder of examples) becomes a link to it on GitHub, in the project's repository and on the branch the registry names. That works whether you wrote it from `docs/` (`../worker/README.md`) or from the repository root, as in a README copied into `docs/` (`worker/README.md`). Each rewrite is listed in the build output.
 - A link written from the repository root to a page inside `docs/` (`docs/chat.md`) is made relative to the file you are in.
-- A link to a page that does not exist, or that is a draft, is shown as plain text and fails the CI build with the file and the target named. While you fix them, `docusystem build --lenient` reports them as warnings.
+- A link to a page that does not exist, or that is a draft, is shown as plain text and fails the CI build with the file and the target named. While you fix them, a lenient build (`node build/cli.js build --lenient`) reports them as warnings.
+- To link to a page of another project, write its address: `[the Nix module](https://docs.avunu.net/frappe-nix/docs/production/)`. That works on GitHub, in Obsidian and on the site. A site-relative address such as `/frappe-nix/docs/production/` also works on the site, and the build checks that the page exists, but GitHub cannot resolve it. Do not point a relative file link at another project's folder: it only resolves on the site, by accident of how the projects are laid out.
 - Raw HTML gets the same repairs, because a README uses it for its centred logo and its badges: the `href` of an `<a>`, the `src` of an `<img>` or `<source>`, and each file of a `srcset`. Which elements raw HTML may use at all is in [Raw HTML, addresses and files](#raw-html-addresses-and-files). `<p align="center"><img src="./assets/logo.png" alt="Logo"></p>` and `<div align="center"><a href="docs/chat.md">Chat</a></div>` pass a strict build, and each rewrite is listed in the build output. Tags in code and in HTML comments are left as written. Prefer Markdown links all the same: a raw `<a>` inside a paragraph is not kept (see [what does not render](#what-does-not-render)).
 
 ## Code
@@ -96,11 +97,11 @@ The published pages are served from the project's own domain, so what a page may
 - **Files.** A file that a page links to is published beside the pages. Images, PDFs, archives and data files are fine; an HTML, script or stylesheet-transform file (`.html`, `.js`, `.xsl` and similar), an SVG with scripts or handlers, and an XML file that says it is XHTML are refused. Link to the source on GitHub instead.
 - **A tag that is not HTML**, such as the `<name>` of `docker run <name>`, written outside backticks, is a warning: the site writes it as an empty element and the text between the brackets is lost. Write it in backticks.
 
-Code, in a fenced block or in backticks, is shown and never run, so `<script>` there is fine. The check is made twice: `docusystem lint` reads your Markdown, and the build then reads the pages Jx wrote and refuses any that hold a script, an event handler, a `javascript:` address or an embedded page, **in every mode, `--lenient` included**, because that is what a reader's browser would run. Every page also carries a `Content-Security-Policy` that lets a browser run only the site's own scripts, so that a handler or a script that slipped past both checks does nothing. See [the policy](../reference/build-pipeline.md#the-content-security-policy).
+Code, in a fenced block or in backticks, is shown and never run, so `<script>` there is fine. The check is made twice: the lint step of every build reads your Markdown, and the build then reads the pages Jx wrote and refuses any that hold a script, an event handler, a `javascript:` address or an embedded page, **in every mode, `--lenient` included**, because that is what a reader's browser would run. Every page also carries a `Content-Security-Policy` that lets a browser run only the site's own scripts, so that a handler or a script that slipped past both checks does nothing. See [the policy](../reference/build-pipeline.md#the-content-security-policy).
 
 ## What does not render
 
-Jx drops or reshapes a few constructs that GitHub and Obsidian handle. The build reports each one as `docs/<file>:<line>` with what to write instead. The ones marked "error" lose text, leave an empty link or would run code, so a strict build (every CI run) fails on them; the others are warnings.
+Jx drops or reshapes a few constructs that GitHub and Obsidian handle. The build reports each one as `<project>/docs/<file>:<line>` with what to write instead. The ones marked "error" lose text, leave an empty link or would run code, so a strict build (every CI run) fails on them; the others are warnings.
 
 | Written                                                   | What the site does                                              | Build                            |
 | --------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------- |
@@ -122,8 +123,8 @@ Block HTML without a blank line inside it (`<p align="center"><img ...></p>`) wo
 
 A `${...}` in an address (a link, an image, an autolink or a bare URL), in a raw HTML tag, in a directive or in the language of a code fence is an error. Jx evaluates every string that holds `${` as JavaScript when it builds an attribute, so a page that held one could run code in the build, in CI too. That never happens: staging writes every `${` of a page, in code and front matter as well and in every spelling that Markdown, HTML or YAML decodes to it (`&#36;{`, `$\{`), with a zero-width space between `$` and `{`, and the post-build step writes the plain text back wherever it is text. In an address or an attribute the zero-width space stays, so the link does not say what you wrote: write the address as `%24%7B...%7D`, or put the text in a code span or a code block.
 
-Run `docusystem lint` to see only these checks, with file and line, without building.
+Every build prints these checks first, with the file and line, so a failing build tells you what to change before it says anything about Jx.
 
 ## Strict and lenient
 
-`CI=true` makes every document problem fail the build, and `check` is always strict. Leniency is never a file setting: it is a per-run choice for the first pass, `docusystem build --lenient` (or `DOCUSYSTEM_LENIENT=1`). `docusystem dev` is always lenient. See [strictness](../reference/command-line.md#strictness).
+`CI=true` makes every document problem fail the build, and `check` is always strict. Leniency is never a file setting: it is a per-run choice for the first pass, `node build/cli.js build --lenient` (or `DOCS_LENIENT=1`). See [strictness](../reference/command-line.md#strictness) and [previewing](previewing.md) for how to build one project from its own checkout.
