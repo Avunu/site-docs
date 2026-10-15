@@ -34,6 +34,7 @@ describe("ci.yml", () => {
       "verify",
       "windows",
       "workflows",
+      "workspace",
     ]);
   });
 

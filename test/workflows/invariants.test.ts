@@ -23,8 +23,11 @@ const workflows = repositoryWorkflows().filter((wf) => !CALLERS.has(wf.file));
 
 /** The events each workflow of this repository starts on. */
 const EVENTS: Record<string, string[]> = {
+  "bump.yml": ["schedule", "workflow_dispatch"],
   "catalog.yml": ["schedule", "workflow_dispatch"],
+  "check-docs.yml": ["workflow_call"],
   "ci.yml": ["pull_request", "push", "workflow_dispatch"],
+  "deploy.yml": ["push", "workflow_dispatch"],
   "docs-build.yml": ["workflow_call"],
   "docs-deploy.yml": ["workflow_call"],
   "fleet.yml": ["schedule", "workflow_dispatch"],
@@ -34,7 +37,9 @@ const EVENTS: Record<string, string[]> = {
 
 /** The only jobs that hold a write permission, and which. Everything else is read-only or has none. */
 const WRITES: Record<string, string[]> = {
+  "bump.yml#bump": ["actions", "contents", "pull-requests"],
   "catalog.yml#refresh": ["actions", "contents", "pull-requests"],
+  "deploy.yml#deploy": ["id-token", "pages"],
   "docs-deploy.yml#deploy": ["id-token", "pages"],
   "jx-latest.yml#report": ["issues"],
   "release.yml#publish": ["id-token"],
@@ -43,6 +48,7 @@ const WRITES: Record<string, string[]> = {
 
 /** The scripts a workflow may run: this package's (3.1) and the ones other work packages own. */
 const SCRIPTS = new Set([
+  "bump-submodules.mjs",
   "check-pack.mjs",
   "check-pr-title.mjs",
   "sync-catalog.mjs",
@@ -115,7 +121,11 @@ describe("the workflows of this repository", () => {
         .filter(([, job]) => job.permissions?.["id-token"] === "write")
         .map(([id]) => `${wf.file}#${id}`),
     );
-    expect(holders.sort()).toEqual(["docs-deploy.yml#deploy", "release.yml#publish"]);
+    expect(holders.sort()).toEqual([
+      "deploy.yml#deploy",
+      "docs-deploy.yml#deploy",
+      "release.yml#publish",
+    ]);
   });
 
   test("a job that holds id-token: write runs no repository code: no checkout, no install, no npm script, no npx", () => {
@@ -202,7 +212,11 @@ describe("the workflows of this repository", () => {
         const where = `${wf.file}#${job}: ${step}`;
         for (const [, name] of run.matchAll(/\bscripts\/([\w.-]+\.mjs)\b/g)) {
           expect(SCRIPTS, `${where}: scripts/${name}`).toContain(name);
-          if (name === "check-pack.mjs" || name === "check-pr-title.mjs") {
+          if (
+            name === "check-pack.mjs" ||
+            name === "check-pr-title.mjs" ||
+            name === "bump-submodules.mjs"
+          ) {
             expect(existsSync(join(REPO_ROOT, "scripts", name)), `scripts/${name} exists`).toBe(
               true,
             );

@@ -2,7 +2,8 @@ name: CI
 
 # One required check, `ci`, that gathers the rest: a ruleset on main requires it and nothing else, so a
 # job can be renamed, added or removed without editing the ruleset. `ci` passes when every job it waits
-# for succeeded or was skipped (the fleet job only runs on a release pull request).
+# for succeeded or was skipped (the fleet job only runs on a release pull request, and the workspace job
+# skips itself when the change cannot reach the documentation site).
 #
 # A plain `pull_request` workflow: a fork's pull request gets a read-only token and no secrets, and
 # nothing here publishes. Publishing is release.yml.
@@ -10,7 +11,8 @@ name: CI
 # `workflow_dispatch` is how a pull request opened by a workflow gets its checks: release-please
 # (release.yml) and the catalog refresh (catalog.yml) open theirs with GITHUB_TOKEN, and a pull request
 # opened that way starts no `pull_request` workflows. They dispatch this workflow on the branch instead,
-# and the run reports `ci` on the branch head.
+# and the run reports `ci` on the branch head. So does the bump of the documentation submodules (bump.yml)
+# when it has no BUMP_TOKEN.
 on:
   pull_request:
   push:
@@ -387,10 +389,70 @@ jobs:
       - name: Adopt the build in every repository of the fleet
         run: node scripts/fleet.mjs
 
+  # The documentation workspace: every project's docs (the submodules under projects/) built together
+  # and checked, the way deploy.yml builds the site. It runs only when the change can reach the site (the
+  # same paths as the `push` filter of deploy.yml, plus this file; a test holds them in step), always on
+  # a manual run (how the bump pull request, which only moves submodule pointers, gets its checks), and
+  # not at all while the repository has no projects.json. A skipped run passes `ci`. The submodules are
+  # fetched only when the check runs, over https alone: a pull request can edit .gitmodules, and what it
+  # points at is content for the build to read, never code that runs.
+  workspace:
+    name: Workspace build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # checkout; the submodules are public
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2 # the merge commit of a pull request and its parents, to see what changed
+          persist-credentials: false
+      - name: Does the change reach the site?
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          # The same list as `on.push.paths` of deploy.yml, as an extended regular expression.
+          SITE_PATHS: '^(projects/|\.gitmodules$|projects\.json$|docs/|site/|src/|package\.json$|package-lock\.json$|config\.schema\.json$|tsconfig[^/]*\.json$|\.github/workflows/(ci|deploy)\.yml$)'
+        run: |
+          if [ ! -f projects.json ]; then
+            echo "::notice title=workspace::no projects.json: there is no workspace to build yet"
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ] || ! git rev-parse --verify --quiet HEAD^1 > /dev/null; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          elif grep -Eq "$SITE_PATHS" <<< "$(git diff --name-only HEAD^1 HEAD)"; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=workspace::the change does not reach the site; not built"
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Fetch the submodules
+        if: ${{ steps.changes.outputs.relevant == 'true' }}
+        env:
+          GIT_ALLOW_PROTOCOL: https
+        run: git submodule update --init --depth 1 --recursive
+      - name: Set up Node.js
+        if: ${{ steps.changes.outputs.relevant == 'true' }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Install the locked dependencies
+        if: ${{ steps.changes.outputs.relevant == 'true' }}
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build the tool
+        if: ${{ steps.changes.outputs.relevant == 'true' }}
+        run: npm run build
+      - name: Check and build the site
+        if: ${{ steps.changes.outputs.relevant == 'true' }}
+        env:
+          CI: "true" # a document problem fails the build instead of being a warning
+        run: node dist/cli.js check
+
   ci:
     name: ci
     if: ${{ always() }}
-    needs: [check, pack, consumers, verify, workflows, pr-title, fleet]
+    needs: [check, pack, consumers, verify, workflows, pr-title, fleet, workspace]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

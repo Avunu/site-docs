@@ -1,0 +1,112 @@
+name: Docs site
+
+# Builds the one documentation site of every Avunu project (every submodule under projects/, built
+# together from projects.json) and, once a maintainer has set the repository variable DOCS_SITE_ENABLED to
+# true, publishes it to GitHub Pages (custom domain docs.avunu.net, set in the repository's Pages
+# settings). Until then it only builds and checks.
+#
+# Starts on a push to the default branch that can change the site, and by hand. A bump of a project is
+# such a push: the `Bump projects` workflow (bump.yml) proposes it, a pull request merges it. A merge made
+# with the default GITHUB_TOKEN starts no workflow (a GitHub rule), so the maintainer's BUMP_TOKEN is what
+# makes this run by itself after a bump; without it, run this workflow by hand after the merge.
+#
+# The build job holds a read-only token and no secret; it is also the job whose output is published. The
+# deploy job runs none of this repository's or any project's code: it hands the artifact the build job
+# made to GitHub Pages, and it is the only job with `pages: write` and `id-token: write`.
+#
+# Keep the path filter in step with the `changes` step of the Workspace build job in ci.yml: a test holds
+# them equal.
+on:
+  push:
+    branches: [main]
+    paths:
+      - projects/**
+      - .gitmodules
+      - projects.json
+      - docs/**
+      - site/**
+      - src/**
+      - package.json
+      - package-lock.json
+      - config.schema.json
+      - tsconfig*.json
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+permissions: {}
+
+# One run per ref at a time; a newer run waits and replaces any run already waiting. Nothing is cancelled
+# half way: the deploy job below has its own group, `pages`, shared with nothing else.
+concurrency:
+  group: docs-site-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # checkout of this repository and, with the token, of the submodules
+    env:
+      PUBLISH: ${{ vars.DOCS_SITE_ENABLED == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    steps:
+      # Shallow, and no token left behind. The submodules are other repositories' documentation: they
+      # are content for the build to read, never code that runs.
+      - name: Check out the repository and its submodules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false # a restored cache is an input to a build that is about to be deployed
+
+      - name: Install the locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build the tool
+        run: npm run build
+
+      # Builds every project into one site and fails on any document problem; the folder it wrote is
+      # the step output `dist`.
+      - name: Check and build the site
+        id: check
+        env:
+          CI: "true" # a document problem fails the build instead of being a warning
+        run: node dist/cli.js check
+
+      - name: Package the site for GitHub Pages
+        if: ${{ env.PUBLISH == 'true' }}
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ steps.check.outputs.dist }}
+          include-hidden-files: true # dotfiles are dropped by default, and that includes .well-known/
+
+  deploy:
+    name: Publish
+    needs: build
+    if: ${{ vars.DOCS_SITE_ENABLED == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write # publish the artifact
+      id-token: write # prove to Pages that this run made it
+    concurrency:
+      group: pages
+      cancel-in-progress: false # never cancel a deployment half way
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Fails with a plain message when Pages is not enabled, before anything is published.
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
