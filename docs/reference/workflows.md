@@ -37,7 +37,7 @@ Triggers: a schedule at minutes 7 and 37 of every hour, and `workflow_dispatch` 
 3. When anything moved: commit the pointers on a branch `bump/projects` rebuilt from the default branch, push it with a lease (only that branch, never the default branch), open or update the one pull request `chore(docs): bump N project(s)` and turn on auto-merge.
 4. When nothing is left to bump and no lookup failed, close the open bump pull request.
 
-The token is the secret `BUMP_TOKEN` when it exists and `GITHUB_TOKEN` otherwise. With `GITHUB_TOKEN`, a pull request starts no `pull_request` workflows, so the workflow dispatches `ci.yml` on the branch instead; and the merge that auto-merge makes starts no push workflow, so `deploy.yml` does not run by itself. [Operations](../maintainers/operations.md) has the exact token permissions and the consequences.
+The token is the secret `DOCS_BUMP_TOKEN` when it exists and `GITHUB_TOKEN` otherwise. With `GITHUB_TOKEN`, a pull request starts no `pull_request` workflows, so the workflow dispatches `ci.yml` on the branch instead; and the merge that auto-merge makes starts no push workflow, so `deploy.yml` does not run by itself. [Operations](../maintainers/operations.md) has the exact token permissions and the consequences.
 
 ## `check-docs.yml`
 

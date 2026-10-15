@@ -10,7 +10,7 @@ name: CI
 #
 # `workflow_dispatch` is how a pull request opened by a workflow gets its checks: a pull request opened
 # with GITHUB_TOKEN starts no `pull_request` workflows, so the bump of the documentation submodules
-# (bump.yml) dispatches this workflow on its branch when it has no BUMP_TOKEN, and the run reports `ci`
+# (bump.yml) dispatches this workflow on its branch when it has no DOCS_BUMP_TOKEN, and the run reports `ci`
 # on the branch head.
 on:
   pull_request:

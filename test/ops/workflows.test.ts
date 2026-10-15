@@ -352,19 +352,19 @@ describe("bump.yml", () => {
     expect(step.run).toContain('--json "$RUNNER_TEMP/bump.json" --summary "$RUNNER_TEMP/bump.md"');
   });
 
-  test("pushes with BUMP_TOKEN when it is set and GITHUB_TOKEN when it is not, never both at once", () => {
+  test("pushes with DOCS_BUMP_TOKEN when it is set and GITHUB_TOKEN when it is not, never both at once", () => {
     for (const name of [
       "Push the branch and open or update the pull request",
       "Close the pull request when nothing is left to bump",
     ]) {
       expect(stepNamed(job?.steps, name).env?.GH_TOKEN, name).toBe(
-        "${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}",
+        "${{ secrets.DOCS_BUMP_TOKEN || secrets.GITHUB_TOKEN }}",
       );
     }
     expect(
       stepNamed(job?.steps, "Push the branch and open or update the pull request").env?.OWN_TOKEN,
-    ).toBe("${{ secrets.BUMP_TOKEN != '' }}");
-    expect(bump.text.match(/secrets\.BUMP_TOKEN \|\| secrets\.GITHUB_TOKEN/g)).toHaveLength(2);
+    ).toBe("${{ secrets.DOCS_BUMP_TOKEN != '' }}");
+    expect(bump.text.match(/secrets\.DOCS_BUMP_TOKEN \|\| secrets\.GITHUB_TOKEN/g)).toHaveLength(2);
   });
 
   test("the title and the branch are the ones the brief names, and the PR is updated through REST", () => {
@@ -536,7 +536,7 @@ exit 0`,
         expect(log).toContain("gh pr merge 7 --auto --squash");
       });
 
-      test("with BUMP_TOKEN the pull request starts CI itself: ci.yml is not dispatched, and no notice is raised", () => {
+      test("with DOCS_BUMP_TOKEN the pull request starts CI itself: ci.yml is not dispatched, and no notice is raised", () => {
         const box = sandbox();
         const result = pushStep(box, { OWN_TOKEN: "true", FAKE_PR_AFTER: "42" });
         expect(box.log()).not.toContain("gh workflow run");
@@ -547,7 +547,7 @@ exit 0`,
         const box = sandbox();
         const result = pushStep(box, { OWN_TOKEN: "false", FAKE_PR_AFTER: "42" });
         expect(box.log()).toContain("gh workflow run ci.yml --ref bump/projects");
-        expect(result.out).toContain("::notice title=BUMP_TOKEN::BUMP_TOKEN is not set");
+        expect(result.out).toContain("::notice title=DOCS_BUMP_TOKEN::DOCS_BUMP_TOKEN is not set");
         expect(result.out).toContain("deploy.yml must be run by hand");
       });
 

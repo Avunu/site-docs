@@ -38,7 +38,7 @@ _Undo_: rename it back, as long as no other repository has taken the old name. N
 
 1. DNS: one record, `docs.avunu.net. CNAME avunu.github.io.`
 2. Settings, Pages, Source: **GitHub Actions**. Custom domain `docs.avunu.net`; turn on Enforce HTTPS once the certificate is issued. A repository has one custom domain, so this replaces `docusystem.avunu.net`: delete the DNS record `docusystem` first (step 5 explains why the record goes before the setting), then change the domain.
-3. Create the secret `BUMP_TOKEN` and set the repository variable `DOCS_SITE_ENABLED` to `true`, as [operations](operations.md#what-the-maintainer-sets-once) describes. Turn on branch protection (require `ci`) and auto-merge.
+3. Create the secret `DOCS_BUMP_TOKEN` and set the repository variable `DOCS_SITE_ENABLED` to `true`, as [operations](operations.md#what-the-maintainer-sets-once) describes. Turn on branch protection (require `ci`) and auto-merge.
 4. Run **Docs site** by hand. When it passes, open `https://docs.avunu.net/` and a project's documentation, for example `https://docs.avunu.net/frappe-nix/docs/`.
 
 _Undo_: unset `DOCS_SITE_ENABLED`, remove the custom domain and the DNS record. The old sites are untouched.
