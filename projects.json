@@ -1,0 +1,252 @@
+{
+  "$schema": "./projects.schema.json",
+  "domain": "docs.avunu.net",
+  "name": "Avunu documentation",
+  "tagline": "Documentation for Avunu's open-source projects.",
+  "org": "https://github.com/Avunu",
+  "projects": [
+    {
+      "path": "automated-subscriptions",
+      "slug": "automated_subscriptions",
+      "name": "Automated Subscriptions",
+      "tagline": "Automatic billing for ERPNext Subscriptions, with payment requests, billing anchors, proration, consolidated invoices, and credit notes.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/automated_subscriptions",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
+    },
+    {
+      "path": "avunu-odoo-addons",
+      "slug": "avunu-odoo-addons",
+      "name": "Avunu Odoo Addons",
+      "tagline": "Avunu's Odoo 18 Community modules for email and SMS, document import, AI providers, and the backend and shop-floor UI, built to work alongside OCA.",
+      "platform": "odoo",
+      "repo": "https://github.com/Avunu/avunu-odoo-addons",
+      "license": "AGPL-3.0-or-later AND LGPL-3.0-or-later",
+      "branch": "18.0",
+      "docs": "docs"
+    },
+    {
+      "path": "carbon-theme",
+      "slug": "carbon_frappe",
+      "name": "Carbon Frappe",
+      "tagline": "A complete IBM Carbon Design System theme for Frappe and ERPNext, covering the desk, website, login, email, charts, and tables.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/carbon_frappe",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
+    },
+    {
+      "path": "cloudflare-email",
+      "slug": "cloudflare-email-relay",
+      "name": "Cloudflare Email",
+      "tagline": "Email for Frappe, ERPNext, Odoo and WordPress without SMTP or IMAP: sent through the Cloudflare API, received through a relay that stores every message before it delivers it.",
+      "platform": "general",
+      "repo": "https://github.com/Avunu/cloudflare-email-relay",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "cloudflare-email-delivery",
+      "slug": "cloudflare_email_delivery",
+      "name": "Cloudflare Email Delivery",
+      "tagline": "Send and receive Frappe and ERPNext email through Cloudflare, with no SMTP or IMAP provider in the loop.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/cloudflare_email_delivery",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "data-steward",
+      "slug": "jailbreak",
+      "name": "Jailbreak",
+      "tagline": "Power-user tools for Frappe and ERPNext admins, including bulk merge, item-to-variant conversion, and version restore, each gated behind a setting.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/jailbreak",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
+    },
+    {
+      "path": "erpnext-cis-plus",
+      "slug": "erpnext_cis_plus",
+      "name": "ERPNext CIS Plus",
+      "tagline": "Simpler customer, contact, and address management for ERPNext, with address validation, geolocation, and a map of your customers.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/erpnext_cis_plus",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
+    },
+    {
+      "path": "erpnext-taskview",
+      "slug": "erpnext_taskview",
+      "name": "ERPNext TaskView",
+      "tagline": "A project and task workspace for ERPNext, with timers and hour budgets for staff and a portal where customers follow and work on their projects.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/erpnext_taskview",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "esign-webforms",
+      "slug": "esign",
+      "name": "eSign",
+      "tagline": "Collect electronic signatures on any Frappe or ERPNext document through web forms, with signed PDFs and a full audit trail.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/esign",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
+    },
+    {
+      "path": "frappe-nix",
+      "slug": "frappe-nix",
+      "name": "frappe-nix",
+      "tagline": "Reproducible Nix infrastructure for Frappe and ERPNext, from the development shell to OCI containers and a multi-site NixOS module.",
+      "platform": "nixos",
+      "repo": "https://github.com/Avunu/frappe-nix",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "mercury-banking-integration",
+      "slug": "mercury_integration",
+      "name": "Mercury Integration",
+      "tagline": "Connects ERPNext to Mercury bank for client billing, payroll and vendor ACH, bank sync, reconciliation, and GL-coded journal entries.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/mercury_integration",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "messaging",
+      "slug": "messaging",
+      "name": "Messaging",
+      "tagline": "A unified chat-style inbox for email and SMS in Frappe and ERPNext, with Twilio texting, group broadcasts, and mail-merge newsletters.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/messaging",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "nixos-micro-desktop",
+      "slug": "nixos-micro-desktop",
+      "name": "NixOS Micro Desktop",
+      "tagline": "A low-maintenance NixOS desktop inspired by openSUSE Aeon, set up once and then managed through GNOME Software and Flatpak.",
+      "platform": "nixos",
+      "repo": "https://github.com/Avunu/nixos-micro-desktop",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "nixos-rclone",
+      "slug": "nixos-rclone",
+      "name": "nixos-rclone",
+      "tagline": "A NixOS module and Rust daemon for rclone mounts and two-way sync that pushes local changes in seconds, with Markdown-to-docx conversion built in.",
+      "platform": "nixos",
+      "repo": "https://github.com/Avunu/nixos-rclone",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "odoo-nix",
+      "slug": "odoo-nix",
+      "name": "odoo-nix",
+      "tagline": "Reproducible Nix infrastructure for Odoo Community (OCB) and OCA projects, from scaffolding and development to containers and NixOS.",
+      "platform": "nixos",
+      "repo": "https://github.com/Avunu/odoo-nix",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "postgrid-direct-mail",
+      "slug": "postgrid_integration",
+      "name": "PostGrid Integration",
+      "tagline": "Mail printed Frappe and ERPNext documents as physical letters through PostGrid, by hand or automatically from Notifications.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/postgrid_integration",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
+    },
+    {
+      "path": "site-docs",
+      "slug": "site-docs",
+      "name": "site-docs",
+      "tagline": "The source of docs.avunu.net: the build that turns the docs/ folder of every Avunu project into one site.",
+      "platform": "general",
+      "repo": "https://github.com/Avunu/site-docs",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs",
+      "local": true
+    },
+    {
+      "path": "web-kiosk",
+      "slug": "web_kiosk",
+      "name": "Web Kiosk",
+      "tagline": "A USB-booting NixOS image that turns an x86 computer into a locked-down Firefox kiosk for a single web page.",
+      "platform": "nixos",
+      "repo": "https://github.com/Avunu/web_kiosk",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "wordpress-cloudflare-email",
+      "slug": "wordpress-cloudflare-email",
+      "name": "WordPress Cloudflare Email",
+      "tagline": "Routes all WordPress email through the Cloudflare Email Sending API and keeps a searchable log of every message, with no settings screen.",
+      "platform": "wordpress",
+      "repo": "https://github.com/Avunu/wordpress-cloudflare-email",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "wordpress-jwt-auth",
+      "slug": "wordpress-jwt-auth",
+      "name": "WordPress JWT Auth",
+      "tagline": "Replaces WordPress logins with single sign-on through an OIDC provider or an identity-aware proxy, configured entirely in wp-config.php.",
+      "platform": "wordpress",
+      "repo": "https://github.com/Avunu/wordpress-jwt-auth",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "wordpress-nix",
+      "slug": "wordpress-nix",
+      "name": "wordpress-nix",
+      "tagline": "A fast FrankenPHP WordPress stack built with Nix, deployable as OCI containers or a NixOS module, with MySQL or Turso databases.",
+      "platform": "nixos",
+      "repo": "https://github.com/Avunu/wordpress-nix",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "wp-cloud-files",
+      "slug": "wp-cloud-files",
+      "name": "WP Cloud Files",
+      "tagline": "Stores and serves the WordPress media library from S3-compatible object storage, with direct browser uploads and document thumbnails.",
+      "platform": "wordpress",
+      "repo": "https://github.com/Avunu/wp-cloud-files",
+      "license": "GPL-3.0-or-later",
+      "branch": "main",
+      "docs": "docs"
+    }
+  ]
+}
