@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, test } from "vitest";
 import { PLATFORMS } from "../../src/lib/platforms.js";
@@ -232,18 +232,21 @@ describe("readRegistry", () => {
 
 describe("where a project is", () => {
   const sub = { path: "frappe-nix" };
+  // `resolve` puts the drive in front on Windows, so the expectations are made with it too.
+  const root = resolve("/w");
+
   test("a project is a submodule, a local project is the workspace, a source replaces both", () => {
-    expect(projectRoot("/w", sub)).toBe(join("/w", "projects", "frappe-nix"));
-    expect(projectRoot("/w", { path: "site-docs", local: true })).toBe("/w");
+    expect(projectRoot("/w", sub)).toBe(join(root, "projects", "frappe-nix"));
+    expect(projectRoot("/w", { path: "site-docs", local: true })).toBe(root);
     expect(projectRoot("/w", sub, { "frappe-nix": "/elsewhere/checkout" })).toBe(
-      "/elsewhere/checkout",
+      resolve("/elsewhere/checkout"),
     );
-    expect(projectRoot("/w", sub, { other: "/x" })).toBe(join("/w", "projects", "frappe-nix"));
+    expect(projectRoot("/w", sub, { other: "/x" })).toBe(join(root, "projects", "frappe-nix"));
   });
 
   test("the Markdown folder is below the project, whatever depth the setting has", () => {
     expect(projectDocs("/w", { ...project(), docs: "documentation/user" } as never)).toBe(
-      join("/w", "projects", "frappe-nix", "documentation", "user"),
+      join(root, "projects", "frappe-nix", "documentation", "user"),
     );
     expect(docsPrefix(sub)).toBe("/frappe-nix/docs");
   });
