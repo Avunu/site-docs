@@ -77,7 +77,7 @@ jobs:
       path: frappe-nix
 ```
 
-`path` is the project's path in `projects.json`, and the project must already be in the registry. The workflow builds this repository at the commit pinned in `uses` (it reads its own commit, so the pin is the only place that names it) and checks the project's pull request in place of its submodule, so links to other projects are checked too. It has a read-only token and no secret, publishes nothing and never runs the project's code. Pin `uses` to a full commit and let Dependabot's `github-actions` ecosystem move it; the tool moves with it. The optional input `ref` builds with another commit or branch instead, to try a change of this repository before it is pinned. See [workflows](../reference/workflows.md#check-docsyml).
+`path` is the project's path in `projects.json`, and the project must already be in the registry. The workflow builds this repository at the commit pinned in `uses` (it reads its own commit, so the pin is the only place that names it) and checks the project's pull request in place of its submodule, so links to other projects are checked too. It has a read-only token and no secret, publishes nothing and never runs the project's code. Pin `uses` to a full commit; the tool moves with the pin, so moving a project to a newer check is one line. The optional input `ref` builds with another commit or branch instead, to try a change of this repository before it is pinned. See [workflows](../reference/workflows.md#check-docsyml).
 
 ## How documentation reaches the site
 

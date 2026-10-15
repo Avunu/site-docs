@@ -16,8 +16,8 @@ name: Check docs
 #         path: frappe-nix # the `path` of the project in projects.json
 #
 # What it does: checks out this repository at the commit the caller pinned in `uses:` (this workflow
-# reads it from `job.workflow_sha`, so the tool and this file are always one revision, and a Dependabot
-# bump of the pin moves both) with every project's submodule except the calling one, checks out the caller's pull
+# reads it from `job.workflow_sha`, so the tool and this file are always one revision: changing the pin
+# changes both) with every project's submodule except the calling one, checks out the caller's pull
 # request into a folder of its own, then runs the workspace check for that one project with the caller's
 # checkout in place of its submodule:
 #
