@@ -34,7 +34,7 @@ import { withContentSecurityPolicy } from "./csp.js";
 import { restoreData, restoreText } from "./inert.js";
 import { distFiles, fileFor, htmlPages, routeOfFile } from "./links.js";
 import { publishNotFoundPage, tidyPage } from "./tidy.js";
-import type { DocsConfig, NavData, PostbuildSummary, RepoLink } from "./types.js";
+import type { SiteConfig, NavData, PostbuildSummary, RepoLink } from "./types.js";
 
 /** Languages that are plain text on purpose: no highlighting is expected for them. */
 const PLAIN = new Set(["text", "txt", "plain", "plaintext", "none", "output", "log"]);
@@ -293,9 +293,23 @@ export function rewriteRepoLinks(
  */
 export function runPostbuild(
   dist: string,
-  config: DocsConfig & { branch: string },
+  config: SiteConfig & { branch: string },
   nav: NavData,
-  o: { repoRoot: string; docsDir: string },
+  o: {
+    repoRoot: string;
+    docsDir: string;
+    /**
+     * When many projects share the site: where each one's pages start and where its repository and Markdown
+     * are, so that a link from a page to a file of the repository points at the repository the page is from.
+     */
+    projects?: ReadonlyArray<{
+      prefix: string;
+      repoRoot: string;
+      docsDir: string;
+      repo: string;
+      branch: string;
+    }>;
+  },
 ): PostbuildSummary {
   if (!existsSync(dist)) throw new Error(`${dist} does not exist: the build produced nothing`);
   const site = `https://${config.domain}`;
@@ -318,12 +332,13 @@ export function runPostbuild(
     const source = Object.hasOwn(nav.pages, route) ? nav.pages[route]!.edit : undefined;
     if (source !== undefined) {
       const sourceDir = dirname(source) === "." ? "" : dirname(source);
+      const owner = o.projects?.find((project) => route.startsWith(`${project.prefix}/`));
       const rewritten = rewriteRepoLinks(after, route, sourceDir, {
         dist,
-        repoRoot: o.repoRoot,
-        docsDir: o.docsDir,
-        repoUrl: config.repo,
-        branch: config.branch,
+        repoRoot: owner?.repoRoot ?? o.repoRoot,
+        docsDir: owner?.docsDir ?? o.docsDir,
+        repoUrl: owner?.repo ?? config.repo,
+        branch: owner?.branch ?? config.branch,
       });
       after = rewritten.html;
       repoLinks.push(...rewritten.links);

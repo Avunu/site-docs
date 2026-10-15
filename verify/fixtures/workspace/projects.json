@@ -1,0 +1,30 @@
+{
+  "domain": "docs.example.org",
+  "name": "Example documentation",
+  "tagline": "Two sample projects that the browser suites build and check.",
+  "org": "https://github.com/Example",
+  "projects": [
+    {
+      "path": "edge",
+      "slug": "edge",
+      "name": "Sandbox",
+      "tagline": "An edge-case sandbox: a README that starts with a comment and a badge, links written from the repository root, and text that looks like template expressions.",
+      "platform": "general",
+      "repo": "https://github.com/Example/edge",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
+      "path": "example",
+      "slug": "frappe-nix",
+      "name": "Example project",
+      "tagline": "A sample repository that shows a documentation site made of Markdown and a few small files.",
+      "platform": "nixos",
+      "repo": "https://github.com/Example/example",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    }
+  ]
+}

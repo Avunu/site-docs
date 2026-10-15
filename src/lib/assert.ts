@@ -187,7 +187,13 @@ function hostOf(url: string): string | null {
 export function assertBuild(
   root: string,
   dist: string,
-  expected: { cname: string; routes: number | null; sources?: Record<string, string> },
+  expected: {
+    cname: string;
+    routes: number | null;
+    sources?: Record<string, string>;
+    /** Where documentation starts (`/docs/`; one per project when many share the site). */
+    docsPrefixes?: readonly string[];
+  },
 ): Assertion[] {
   if (!existsSync(dist)) return [fail(`${dist} does not exist: the build produced nothing`)];
   const out: Assertion[] = [];
@@ -256,7 +262,7 @@ export function assertBuild(
       hollowLinks.length === 0,
       "no page has a link without text, image or aria-label",
       `links with nothing inside: ${listOf(hollowLinks)}. A raw HTML <a href> in that page's Markdown ` +
-        "is the usual cause (Jx leaves the link empty and puts its text after it): `docusystem lint` lists it " +
+        "is the usual cause (Jx leaves the link empty and puts its text after it): the lint output lists it " +
         "with its file and line, and [text](url) replaces it",
     ),
   );
@@ -386,7 +392,11 @@ export function assertBuild(
 
   // The search index has an entry for every documentation page.
   out.push(
-    searchCoverage(files.has("search-index.json") ? read("search-index.json") : null, pages),
+    searchCoverage(
+      files.has("search-index.json") ? read("search-index.json") : null,
+      pages,
+      expected.docsPrefixes ?? ["/docs/"],
+    ),
   );
 
   // The sitemap is on the configured domain.
@@ -437,7 +447,11 @@ export function assertBuild(
   return out;
 }
 
-function searchCoverage(raw: string | null, pages: Array<{ route: string }>): Assertion {
+function searchCoverage(
+  raw: string | null,
+  pages: Array<{ route: string }>,
+  prefixes: readonly string[],
+): Assertion {
   if (raw === null) return fail("search-index.json is missing");
   let documents: Array<{ url?: unknown }>;
   try {
@@ -449,7 +463,9 @@ function searchCoverage(raw: string | null, pages: Array<{ route: string }>): As
   }
   const indexed = new Set<string>();
   for (const doc of documents) if (typeof doc.url === "string") indexed.add(doc.url.split("#")[0]!);
-  const docs = pages.map((p) => p.route).filter((route) => route.startsWith("/docs/"));
+  const docs = pages
+    .map((p) => p.route)
+    .filter((route) => prefixes.some((prefix) => route.startsWith(prefix)));
   const absent = docs.filter((route) => !indexed.has(route));
   return verdict(
     absent.length === 0,

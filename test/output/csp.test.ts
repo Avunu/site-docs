@@ -71,7 +71,7 @@ describe("policyFor", () => {
   test("allows what the site loads and nothing else: itself, the catalog, https images", () => {
     const policy = policyFor([]).split("; ");
     expect(policy).toContain("script-src 'self'");
-    expect(policy).toContain("connect-src 'self' https://avunu.net");
+    expect(policy).toContain("connect-src 'self'");
     expect(policy).toContain("img-src 'self' https:");
     expect(policy).toContain("font-src 'self'");
     expect(policy).toContain("style-src 'self' 'unsafe-inline'");
@@ -101,7 +101,7 @@ describe("withContentSecurityPolicy", () => {
 
   test("a page whose head has no charset meta gets it right after <head>", () => {
     expect(withContentSecurityPolicy("<html><head><title>x</title></head></html>")).toMatch(
-      /^<html><head><meta http-equiv="Content-Security-Policy" content="[^"]*" data-docusystem-csp><title>/,
+      /^<html><head><meta http-equiv="Content-Security-Policy" content="[^"]*" data-docs-csp><title>/,
     );
     expect(
       withContentSecurityPolicy('<HTML><HEAD lang="en"><TITLE>x</TITLE></HEAD></HTML>'),
@@ -122,7 +122,7 @@ describe("withContentSecurityPolicy", () => {
     const out = withContentSecurityPolicy(page(own));
     expect(out).toContain(own);
     expect(out.match(/Content-Security-Policy/g)).toHaveLength(2);
-    expect(out.indexOf("data-docusystem-csp")).toBeLessThan(out.indexOf(own));
+    expect(out.indexOf("data-docs-csp")).toBeLessThan(out.indexOf(own));
   });
 
   test("a document with no head is returned as it is", () => {

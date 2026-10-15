@@ -1,12 +1,12 @@
 {
   "$schema": "../document.schema.json",
-  "$description": "The page shell shared by every page: skip link, the docs header (Avunu mark, project name, project switcher, search, theme toggle, GitHub link), the page itself in the default slot, the Night footer and the enhancement island. Pages bring their own <main id=\"main\">. Site data comes from docusystem.config.json (state.config), the project catalog snapshot (state.catalog) and the generated sidebar data (state.nav). Everything derived is a compiler-timed Function, so pages ship no page JavaScript. Page metadata a page may override with its own state: description, ogTitle, ogType, robots.",
+  "$description": "The page shell shared by every page: skip link, the docs header (Avunu mark, project name, project switcher, search, theme toggle, GitHub link), the page itself in the default slot, the Night footer and the enhancement island. Pages bring their own <main id=\"main\">. Project data comes from the project's entry in projects.json (state.config, written to .generated/config), the project catalog snapshot (state.catalog) and the generated sidebar data (state.nav). Everything derived is a compiler-timed Function, so pages ship no page JavaScript. Page metadata a page may override with its own state: description, ogTitle, ogType, robots.",
   "tagName": "div",
   "state": {
     "config": {
       "$prototype": "ContentEntry",
       "contentType": "config",
-      "id": "docusystem.config",
+      "id": "workspace",
       "timing": "compiler"
     },
     "catalog": {
@@ -18,7 +18,7 @@
     "nav": {
       "$prototype": "ContentEntry",
       "contentType": "nav",
-      "id": "nav",
+      "id": "workspace",
       "timing": "compiler"
     },
     "here": {
@@ -29,12 +29,12 @@
     "switcherGroups": {
       "$prototype": "Function",
       "timing": "compiler",
-      "body": "// switcher:start\nconst MAX_ENTRIES = 300;\nconst hostOf = (href) => { try { return new URL(href).hostname; } catch (e) { return ''; } };\nconst normalize = (doc) => {\n  const out = [];\n  const seen = Object.create(null);\n  if (!doc || doc.version !== 1 || !Array.isArray(doc.projects)) { return out; }\n  doc.projects.forEach((p) => {\n    if (out.length >= MAX_ENTRIES) { return; }\n    try {\n      if (!p || typeof p.slug !== 'string' || typeof p.title !== 'string' || typeof p.platform !== 'string') { return; }\n      const title = p.title.trim().slice(0, 120);\n      if (!p.slug || !title || seen[p.slug] || !/^[a-z][a-z0-9-]{0,30}$/.test(p.platform)) { return; }\n      const docs = typeof p.docs === 'string' && p.docs.indexOf('https://') === 0 ? p.docs : '';\n      const href = docs || (typeof p.page === 'string' ? p.page : '');\n      const host = href.indexOf('https://') === 0 ? hostOf(href) : '';\n      if (!host) { return; }\n      seen[p.slug] = true;\n      out.push({ slug: p.slug, title: title, platform: p.platform, href: href, host: host, docs: !!docs });\n    } catch (e) { /* one bad entry never discards the others */ }\n  });\n  return out;\n};\nconst group = (items, current) => {\n  const labels = { frappe: 'Frappe & ERPNext', odoo: 'Odoo', wordpress: 'WordPress', nixos: 'NixOS', general: 'General' };\n  const order = ['frappe', 'odoo', 'wordpress', 'nixos', 'general'];\n  const by = Object.create(null);\n  items.forEach((it) => { (by[it.platform] = by[it.platform] || []).push(it); });\n  const keys = order.filter((k) => by[k]).concat(Object.keys(by).filter((k) => order.indexOf(k) === -1).sort());\n  return keys.map((k) => ({\n    platform: k,\n    label: Object.prototype.hasOwnProperty.call(labels, k) ? labels[k] : k,\n    items: by[k].slice().sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base' })).map((it) => ({\n      slug: it.slug,\n      title: it.title,\n      href: it.href,\n      current: it.slug === current,\n      caption: it.slug === current ? 'You are here' : (it.docs ? 'Docs' : it.host)\n    }))\n  }));\n};\n// switcher:end\nreturn group(normalize(state.catalog.data), state.config.data.slug);"
+      "body": "const MAX_ENTRIES = 300;\nconst hostOf = (href) => { try { return new URL(href).hostname; } catch (e) { return ''; } };\nconst normalize = (doc) => {\n  const out = [];\n  const seen = Object.create(null);\n  if (!doc || doc.version !== 1 || !Array.isArray(doc.projects)) { return out; }\n  doc.projects.forEach((p) => {\n    if (out.length >= MAX_ENTRIES) { return; }\n    try {\n      if (!p || typeof p.slug !== 'string' || typeof p.title !== 'string' || typeof p.platform !== 'string') { return; }\n      const title = p.title.trim().slice(0, 120);\n      if (!p.slug || !title || seen[p.slug] || !/^[a-z][a-z0-9-]{0,30}$/.test(p.platform)) { return; }\n      const docs = typeof p.docs === 'string' && p.docs.indexOf('https://') === 0 ? p.docs : '';\n      const href = docs || (typeof p.page === 'string' ? p.page : '');\n      const host = href.indexOf('https://') === 0 ? hostOf(href) : '';\n      if (!host) { return; }\n      seen[p.slug] = true;\n      out.push({ slug: p.slug, title: title, platform: p.platform, href: href, host: host, docs: !!docs });\n    } catch (e) { /* one bad entry never discards the others */ }\n  });\n  return out;\n};\nconst group = (items, current) => {\n  const labels = { frappe: 'Frappe & ERPNext', odoo: 'Odoo', wordpress: 'WordPress', nixos: 'NixOS', general: 'General' };\n  const order = ['frappe', 'odoo', 'wordpress', 'nixos', 'general'];\n  const by = Object.create(null);\n  items.forEach((it) => { (by[it.platform] = by[it.platform] || []).push(it); });\n  const keys = order.filter((k) => by[k]).concat(Object.keys(by).filter((k) => order.indexOf(k) === -1).sort());\n  return keys.map((k) => ({\n    platform: k,\n    label: Object.prototype.hasOwnProperty.call(labels, k) ? labels[k] : k,\n    items: by[k].slice().sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base' })).map((it) => ({\n      slug: it.slug,\n      title: it.title,\n      href: it.href,\n      current: it.slug === current,\n      caption: it.slug === current ? 'You are here' : (it.docs ? 'Docs' : it.host)\n    }))\n  }));\n};\nreturn group(normalize(state.catalog.data), state.config.data.slug);"
     },
     "searchLinks": {
       "$prototype": "Function",
       "timing": "compiler",
-      "body": "return [{ label: 'Browse the documentation', href: '/docs/' }].concat(state.nav.data.sections.map((s) => ({ label: s.label, href: s.url || s.pages[0].url })));"
+      "body": "return [{ label: 'Browse the documentation', href: state.config.data.docs }].concat(state.nav.data.sections.map((s) => ({ label: s.label, href: s.url || s.pages[0].url })));"
     },
     "description": {
       "$prototype": "Function",
@@ -222,7 +222,7 @@
               "tagName": "a",
               "attributes": {
                 "class": "name",
-                "href": "/"
+                "href": "${state.config.data.home}"
               },
               "textContent": "${state.config.data.name}"
             },
@@ -285,7 +285,7 @@
         "name": "${state.config.data.name}",
         "repo": "${state.config.data.repo}",
         "license": "${state.config.data.license}",
-        "docs": "/docs/"
+        "docs": "${state.config.data.docs}"
       }
     },
     {

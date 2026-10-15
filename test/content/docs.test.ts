@@ -62,6 +62,25 @@ test("readDocs reads published pages in order and skips the rest", () => {
   });
 });
 
+test("the prefix says where a project's documentation starts on a site that holds many", () => {
+  const u = (rel: string, prefix: string) => {
+    const slash = rel.lastIndexOf("/");
+    const name = rel.slice(slash + 1);
+    return urlFor(
+      {
+        dir: slash === -1 ? "" : rel.slice(0, slash),
+        base: name.replace(/\.md$/, ""),
+        isIndex: isIndexName(name),
+      },
+      prefix,
+    );
+  };
+  expect(u("README.md", "/frappe-nix/docs")).toBe("/frappe-nix/docs/");
+  expect(u("Install Steps.md", "/frappe-nix/docs")).toBe("/frappe-nix/docs/install-steps/");
+  expect(u("guides/README.md", "/odoo-nix/docs")).toBe("/odoo-nix/docs/guides/");
+  expect(u("a/b.md", "/docs")).toBe(u("a/b.md", "/docs"));
+});
+
 test("addresses follow the route templates in project.json", () => {
   const u = (rel: string) => {
     const slash = rel.lastIndexOf("/");

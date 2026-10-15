@@ -264,6 +264,41 @@ describe("checkLinks", () => {
     expect(messages.some((m) => m.includes("not in the sidebar data"))).toBe(true);
   });
 
+  test("with several documentation prefixes, each one's home must be built and each one's pages must be in the sidebar", () => {
+    const info = { title: "", description: "", section: "", prev: null, next: null, edit: "" };
+    const dist = writeTree(tempDir(), {
+      "index.html": page("<h1>Home</h1>"),
+      "a/docs/index.html": page("<h1>A</h1>"),
+      "a/docs/x/index.html": page("<h1>AX</h1>"),
+      "b/index.html": page("<h1>B project</h1>"),
+      "b/docs/x/index.html": page("<h1>BX</h1>"),
+    });
+    const nav = navOf({
+      home: link("/a/docs/"),
+      pages: {
+        "/a/docs/": info,
+        "/a/docs/x/": info,
+        "/b/docs/x/": info,
+      },
+    });
+    const messages = checkLinks(dist, { nav, docsPrefixes: ["/a/docs/", "/b/docs/"] }).errors.map(
+      (e) => `${e.page} ${e.message}`,
+    );
+    // b has no documentation home; nothing else is wrong: /b/ (the project's landing) is not a docs page
+    expect(messages).toEqual([
+      "/b/docs/ the documentation home was not built: docs/README.md is missing or unpublished",
+    ]);
+    const unlisted = checkLinks(dist, {
+      nav: navOf({ pages: { "/a/docs/": info, "/b/docs/x/": info } }),
+      docsPrefixes: ["/a/docs/"],
+    }).errors.map((e) => `${e.page} ${e.message}`);
+    expect(
+      unlisted.some((m) => m.startsWith("/a/docs/x/ was built but is not in the sidebar")),
+    ).toBe(true);
+    // /b/docs/x/ is outside the prefixes it was given: not its business
+    expect(unlisted.some((m) => m.startsWith("/b/docs/x/"))).toBe(false);
+  });
+
   test("grouped pages, previous and next, and the featured cards are crawled too", () => {
     const nav = navOf({
       sections: [

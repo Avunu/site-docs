@@ -1,23 +1,18 @@
 {
   "$schema": "../document.schema.json",
   "$layout": "./layouts/base.json",
-  "$description": "The landing page: the project name, its tagline, the links to read the docs and open the repository, the first few documentation pages as cards, and a line about Avunu. All of it comes from docusystem.config.json and the generated nav data.",
-  "title": "${state.config.data.name}: documentation",
+  "$description": "The landing page of the site: the name and tagline of the whole documentation, and one card per project that has documentation here, grouped by platform. The projects come from the catalog that the build writes from projects.json; every card links to the project's own landing page.",
+  "title": "${state.config.data.name}",
   "state": {
-    "platformLabel": {
+    "projectGroups": {
       "$prototype": "Function",
       "timing": "compiler",
-      "body": "return ({ frappe: 'Frappe & ERPNext', odoo: 'Odoo', wordpress: 'WordPress', nixos: 'NixOS', general: 'General' })[state.config.data.platform] || state.config.data.platform;"
+      "body": "const esc = (t) => String(t).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('${', '&#36;{');\nconst labels = { frappe: 'Frappe & ERPNext', odoo: 'Odoo', wordpress: 'WordPress', nixos: 'NixOS', general: 'General' };\nconst order = ['frappe', 'odoo', 'wordpress', 'nixos', 'general'];\nconst projects = ((state.catalog.data && state.catalog.data.projects) || []).filter((p) => p && typeof p.docs === 'string' && p.docs.indexOf('https://') === 0 && typeof p.platform === 'string');\nconst by = Object.create(null);\nprojects.forEach((p) => { (by[p.platform] = by[p.platform] || []).push(p); });\nconst keys = order.filter((k) => by[k]).concat(Object.keys(by).filter((k) => order.indexOf(k) === -1).sort());\nconst pathOf = (u) => { try { return new URL(u).pathname; } catch (e) { return u; } };\nreturn keys.map((k) => ({\n  tagName: 'section',\n  attributes: { class: 'start', 'aria-labelledby': 'group-' + k },\n  children: [\n    { tagName: 'h2', attributes: { id: 'group-' + k }, innerHTML: esc(labels[k] || k) },\n    { tagName: 'ul', attributes: { class: 'cards' }, children: by[k].slice().sort((a, b) => String(a.title).localeCompare(String(b.title), 'en', { sensitivity: 'base' })).map((p) => ({\n      tagName: 'li',\n      children: [{ tagName: 'a', attributes: { class: 'card', href: pathOf(p.docs) }, children: [\n        { tagName: 'span', attributes: { class: 'k' }, innerHTML: esc(p.license || 'Open source') },\n        { tagName: 'span', attributes: { class: 't' }, innerHTML: esc(p.title) },\n        { tagName: 'span', attributes: { class: 'd' }, innerHTML: esc(p.summary || '') }\n      ] }]\n    })) }\n  ]\n}));"
     },
-    "featuredNodes": {
+    "hasProjects": {
       "$prototype": "Function",
       "timing": "compiler",
-      "body": "const esc = (t) => String(t).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('${', '&#36;{');\nreturn state.nav.data.featured.map((f) => ({ tagName: 'li', children: [{ tagName: 'a', attributes: { class: 'card', href: f.url }, children: [{ tagName: 'span', attributes: { class: 'k' }, innerHTML: esc(f.section || 'Documentation') }, { tagName: 'span', attributes: { class: 't' }, innerHTML: esc(f.title) }, { tagName: 'span', attributes: { class: 'd' }, innerHTML: esc(f.description) }] }] }));"
-    },
-    "hasFeatured": {
-      "$prototype": "Function",
-      "timing": "compiler",
-      "body": "return state.nav.data.featured.length > 0;"
+      "body": "return state.projectGroups.length > 0;"
     }
   },
   "children": [
@@ -201,7 +196,7 @@
               "attributes": {
                 "class": "eyebrow"
               },
-              "textContent": "Open source · ${state.platformLabel}"
+              "textContent": "Open source"
             },
             {
               "tagName": "h1",
@@ -227,10 +222,10 @@
                   "tagName": "a",
                   "attributes": {
                     "class": "btn primary",
-                    "href": "/docs/"
+                    "href": "https://avunu.net/open-source/"
                   },
                   "children": [
-                    "Read the documentation",
+                    "All projects",
                     {
                       "tagName": "docs-icon",
                       "$props": {
@@ -254,42 +249,7 @@
                         "size": "18"
                       }
                     },
-                    "View on GitHub"
-                  ]
-                }
-              ]
-            },
-            {
-              "tagName": "ul",
-              "attributes": {
-                "class": "facts",
-                "aria-label": "Project facts"
-              },
-              "children": [
-                {
-                  "tagName": "li",
-                  "children": [
-                    {
-                      "tagName": "b",
-                      "textContent": "License "
-                    },
-                    {
-                      "tagName": "span",
-                      "textContent": "${state.config.data.license}"
-                    }
-                  ]
-                },
-                {
-                  "tagName": "li",
-                  "children": [
-                    {
-                      "tagName": "b",
-                      "textContent": "Platform "
-                    },
-                    {
-                      "tagName": "span",
-                      "textContent": "${state.platformLabel}"
-                    }
+                    "Avunu on GitHub"
                   ]
                 }
               ]
@@ -297,66 +257,8 @@
           ]
         },
         {
-          "tagName": "section",
-          "attributes": {
-            "class": "start",
-            "aria-labelledby": "start-title",
-            "hidden": "${!state.hasFeatured}"
-          },
-          "children": [
-            {
-              "tagName": "h2",
-              "attributes": {
-                "id": "start-title"
-              },
-              "textContent": "Start here"
-            },
-            {
-              "tagName": "ul",
-              "attributes": {
-                "class": "cards"
-              },
-              "children": "${state.featuredNodes}"
-            }
-          ]
-        },
-        {
-          "tagName": "section",
-          "attributes": {
-            "class": "band",
-            "aria-label": "About Avunu"
-          },
-          "children": [
-            {
-              "tagName": "div",
-              "attributes": {
-                "class": "inner"
-              },
-              "children": [
-                {
-                  "tagName": "p",
-                  "textContent": "${state.config.data.name} is part of Avunu's open-source work: tools we build for our own client projects and share with everyone."
-                },
-                {
-                  "tagName": "a",
-                  "attributes": {
-                    "class": "btn secondary",
-                    "href": "https://avunu.net/open-source/"
-                  },
-                  "children": [
-                    "See every project",
-                    {
-                      "tagName": "docs-icon",
-                      "$props": {
-                        "name": "arrow-up-right",
-                        "size": "18"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+          "tagName": "div",
+          "children": "${state.projectGroups}"
         }
       ]
     }

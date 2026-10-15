@@ -6,7 +6,7 @@
 // result would publish something the author did not intend, so a strict build (CI=true, --strict and
 // every `check`) turns each of those lines into a failure. The lines are found by their wording, which
 // is Jx's to change: test/integration runs the pinned Jx on a broken tree on every Jx bump, so a
-// change of wording is caught there and not in a consumer's pull request.
+// change of wording is caught there and not in a project's pull request.
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { NavData } from "./types.js";
@@ -33,15 +33,15 @@ export function doneRoutes(output: string): number | null {
 }
 
 /**
- * `!lenient && (strict || CI=true)`, where lenient is `--lenient` or `DOCUSYSTEM_LENIENT=1`.
+ * `!lenient && (strict || CI=true)`, where lenient is `--lenient` or `DOCS_LENIENT=1`.
  * `check` is always strict and `dev` always lenient: they pass `strict: true` and `lenient: true`
- * (and `check` removes DOCUSYSTEM_LENIENT from the environment it passes, because it ignores it).
+ * (and `check` removes DOCS_LENIENT from the environment it passes, because it ignores it).
  */
 export function isStrict(
   o: { lenient?: boolean; strict?: boolean },
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  const lenient = o.lenient === true || env.DOCUSYSTEM_LENIENT === "1";
+  const lenient = o.lenient === true || env.DOCS_LENIENT === "1";
   return !lenient && (o.strict === true || env.CI === "true");
 }
 
@@ -83,7 +83,7 @@ export function expectedRoutes(nav: NavData, root: string): number {
 /** The final line of a failed strict build; `count` is how many problems were printed above it. */
 export function strictFailure(count: number): string {
   return (
-    `docusystem: ${count} document problem(s) above fail the build. ` +
+    `docs: ${count} document problem(s) above fail the build. ` +
     "Fix the documents, or run with --lenient while you work through them."
   );
 }
@@ -95,14 +95,14 @@ export function strictFailure(count: number): string {
  */
 export function lenientNotice(count: number): string {
   return (
-    `docusystem: ${count} document problem(s) above are only warnings because the build is lenient. ` +
+    `docs: ${count} document problem(s) above are only warnings because the build is lenient. ` +
     "A strict build (CI=true, and every check) fails on them."
   );
 }
 
 /**
  * The closing lines of a build that an output assertion (step 12) stopped: nothing was published.
- * Assertions are never downgraded, so a lenient build (the default outside CI, and always `dev`) says
+ * Assertions are never downgraded, so a lenient build (the default outside CI) says
  * so: its lint lines were printed as warnings, and a reader who then meets `FAIL` has to be told that
  * leniency does not reach it. `linted` says that lint printed something above: the lines tie a
  * failure to the lint line of the same page, which is where the cause of an output assertion that
@@ -111,14 +111,14 @@ export function lenientNotice(count: number): string {
 export function assertionFailure(count: number, o: { strict: boolean; linted: boolean }): string[] {
   const cause =
     "If a lint warning above is about the page an assertion names, that warning is the cause: fix it.";
-  const lines = [`docusystem: ${count} output assertion(s) failed. Nothing was published.`];
+  const lines = [`docs: ${count} output assertion(s) failed. Nothing was published.`];
   if (!o.strict) {
     lines.push(
-      "docusystem: a lenient build (the default outside CI, and always `docusystem dev`) relaxes " +
+      "docs: a lenient build (the default outside CI) relaxes " +
         `document problems only; output assertions fail every build.${o.linted ? ` ${cause}` : ""}`,
     );
   } else if (o.linted) {
-    lines.push(`docusystem: ${cause}`);
+    lines.push(`docs: ${cause}`);
   }
   return lines;
 }
@@ -154,8 +154,8 @@ export function failureProblems(output: string): string[] {
 export function imageHint(output: string): string | null {
   if (!/sharp|libstdc\+\+/i.test(output)) return null;
   return (
-    "hint: Jx could not load its native image library (sharp). If you cannot install it, add " +
-    '"images": "off" to docusystem.config.json: the site is then built without image optimization.'
+    "hint: Jx could not load its native image library (sharp), which needs a C++ runtime library where " +
+    "Node looks for it. On NixOS run the build in the repository's dev shell, or put libstdc++ on LD_LIBRARY_PATH."
   );
 }
 

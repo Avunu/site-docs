@@ -4,7 +4,7 @@
 //   bun states.ts <dist> <outDir> [route] [search query]
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { defaultDocsRoute, launch, serve, snapshotOf, stubCatalog } from "./lib.ts";
+import { defaultDocsRoute, launch, serve, stubNetwork } from "./lib.ts";
 
 const [distArg, outArg, routeGiven, query = "configuration"] = process.argv.slice(2);
 if (!distArg || !outArg) {
@@ -15,7 +15,6 @@ const dist = resolve(distArg);
 const out = resolve(outArg);
 mkdirSync(out, { recursive: true });
 const route = routeGiven ?? defaultDocsRoute(dist);
-const snapshot = snapshotOf(dist);
 const server = serve(dist);
 const browser = await launch();
 const base = `http://localhost:${server.port}`;
@@ -25,7 +24,7 @@ for (const scheme of ["light", "dark"] as const) {
     viewport: { width: 1440, height: 900 },
     colorScheme: scheme,
   });
-  await stubCatalog(desktop, snapshot);
+  await stubNetwork(desktop);
   const page = await desktop.newPage();
   await page.goto(base + route, { waitUntil: "networkidle" });
   await page.waitForTimeout(300);
@@ -44,7 +43,7 @@ for (const scheme of ["light", "dark"] as const) {
     viewport: { width: 390, height: 844 },
     colorScheme: scheme,
   });
-  await stubCatalog(phone, snapshot);
+  await stubNetwork(phone);
   const m = await phone.newPage();
   await m.goto(base + route, { waitUntil: "networkidle" });
   await m.waitForTimeout(300);

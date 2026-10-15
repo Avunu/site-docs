@@ -2,7 +2,7 @@
 // type's `route` template (`{id:slug}`, `{dir:slug}`; `extensions/parser/src/content-routes.ts` in
 // jxsuite/jx, MIT), kept here so that nav.ts can write the sidebar's links before Jx runs. Two
 // checks keep the copies in step: test/content/jx-agreement.test.ts runs both over the same inputs
-// (against the pinned Jx), and the link crawl of `docusystem check` fails when a sidebar link is not a
+// (against the pinned Jx), and the link crawl of `check` fails when a sidebar link is not a
 // page.
 
 /**

@@ -1,19 +1,23 @@
-// Checks on the Jx project files of site/ themselves (ported from the starter's project.test.ts and
-// the prototype's, with the import changes and the additions of section 9.1 "site"): every document
-// parses, every component is registered under its own tag, every layout, page and content type
-// binds to a file or a name that exists, every design token that is used is defined, the
-// JavaScript in state entries is valid, the project switcher's logic (which lives twice, once at
-// build time in the base layout and once in the browser in the component) is the same text and
-// gives the right groups, and the interactive parts keep their accessible structure.
+// Checks on the Jx project files of site/ themselves: every document parses, every component is
+// registered under its own tag, every layout, page, template and content type binds to a file or a
+// name that exists, every design token that is used is defined, the JavaScript in state entries is
+// valid, the project switcher's grouping (built into every page by the base layout) gives the right
+// groups, and the interactive parts keep their accessible structure.
 import { readdirSync } from "node:fs";
 import { basename, join, posix } from "node:path";
 import { describe, expect, test } from "vitest";
+import {
+  PATH_TOKEN,
+  TEMPLATES as TEMPLATE_FILES,
+  renderTemplate,
+} from "../../src/workspace/pages.js";
 import { SAMPLE_CATALOG, catalog, entry } from "./support/catalog.js";
 import {
   COMPONENTS,
   JX_PACKAGES,
   LAYOUTS,
   PAGES,
+  PAGE_DOCUMENTS,
   PROJECT,
   SITE,
   bodies,
@@ -21,16 +25,21 @@ import {
   nodes,
   readJson,
   readText,
+  TEMPLATES,
   type Json,
 } from "./support/site.js";
 
-const DOCUMENTS = ["project.base.json", ...COMPONENTS, ...LAYOUTS, ...PAGES];
+const DOCUMENTS = ["project.base.json", ...COMPONENTS, ...LAYOUTS, ...PAGE_DOCUMENTS];
 
 describe("the documents", () => {
-  test("there are 12 components, 2 layouts and 3 pages, all valid JSON", () => {
+  test("there are 12 components, 2 layouts, 2 pages and 2 templates, all valid JSON", () => {
     expect(COMPONENTS).toHaveLength(12);
     expect(LAYOUTS).toEqual(["layouts/base.json", "layouts/docs.json"]);
-    expect(PAGES).toEqual(["pages/404.json", "pages/[...path].json", "pages/index.json"]);
+    // The site's own pages: the landing page and the not-found page. Every project's pages are made
+    // from the two templates (src/workspace/pages.ts), never written by hand.
+    expect(PAGES).toEqual(["pages/404.json", "pages/index.json"]);
+    expect(TEMPLATES).toEqual(["templates/project-docs.json", "templates/project-index.json"]);
+    expect(TEMPLATES.sort()).toEqual(Object.values(TEMPLATE_FILES).sort());
     for (const file of DOCUMENTS) expect(() => JSON.parse(readText(file)), file).not.toThrow();
   });
 
@@ -62,7 +71,7 @@ describe("every document binds to files and names that exist", () => {
   test("layout chains end, and every layout named is a file of site/", () => {
     expect(resolve(PROJECT.defaults.layout)).toBe("layouts/base.json");
     expect(exists("layouts/base.json")).toBe(true);
-    for (const file of [...LAYOUTS, ...PAGES]) {
+    for (const file of [...LAYOUTS, ...PAGE_DOCUMENTS]) {
       let current = file;
       for (let hops = 0; ; hops += 1) {
         expect(hops, `${file}: the $layout chain does not end`).toBeLessThan(5);
@@ -78,7 +87,8 @@ describe("every document binds to files and names that exist", () => {
     expect(readJson("layouts/base.json").$layout).toBeUndefined();
     expect(readJson("pages/index.json").$layout).toBe("./layouts/base.json");
     expect(readJson("pages/404.json").$layout).toBe("./layouts/base.json");
-    expect(readJson("pages/[...path].json").$layout).toBe("./layouts/docs.json");
+    expect(readJson("templates/project-index.json").$layout).toBe("./layouts/base.json");
+    expect(readJson("templates/project-docs.json").$layout).toBe("./layouts/docs.json");
     expect(readJson("layouts/docs.json").$layout).toBe("./layouts/base.json");
   });
 
@@ -100,7 +110,7 @@ describe("every document binds to files and names that exist", () => {
     const use = (tag: string, by: string): void => {
       usedBy.set(tag, (usedBy.get(tag) ?? new Set()).add(by));
     };
-    for (const file of [...COMPONENTS, ...LAYOUTS, ...PAGES]) {
+    for (const file of [...COMPONENTS, ...LAYOUTS, ...PAGE_DOCUMENTS]) {
       for (const node of nodes(readJson(file), (n) => typeof n.tagName === "string")) {
         const tag = String(node.tagName);
         if (tag.includes("-") && file !== `components/${tag}.json`) use(tag, file);
@@ -119,7 +129,7 @@ describe("every document binds to files and names that exist", () => {
       expect(JX_PACKAGES as readonly string[], extension).toContain(extension);
     }
     const packages = new Set<string>();
-    for (const file of [...COMPONENTS, ...LAYOUTS, ...PAGES]) {
+    for (const file of [...COMPONENTS, ...LAYOUTS, ...PAGE_DOCUMENTS]) {
       for (const node of nodes(readJson(file), (n) => typeof n.$src === "string")) {
         const src = String(node.$src);
         expect(src, `${file}: a sidecar file is not allowed, only npm: packages`).toMatch(/^npm:/);
@@ -134,50 +144,88 @@ describe("every document binds to files and names that exist", () => {
     const content = PROJECT.content as Record<string, Json>;
     expect(Object.fromEntries(Object.entries(content).map(([k, v]) => [k, v.source]))).toEqual({
       docs: "./.generated/docs",
-      nav: "./.generated/nav.json",
-      config: "./docusystem.config.json",
+      nav: "./.generated/nav",
+      config: "./.generated/config",
       projects: "./data/projects.snapshot.json",
     });
     expect(content.docs!.format).toBe("Markdown");
     for (const name of ["nav", "config", "projects"]) expect(content[name]!.format).toBe("json");
-    // A `ContentEntry` of a layout or page names a content type of the project and, for the
-    // single-document types, the file stem Jx derives the id from.
+    // A `ContentEntry` of a layout, page or template names a content type of the project and, for the
+    // single-document type, the file stem Jx derives the id from. `nav` and `config` are folders
+    // with one file per project: the layout names the workspace's own entry (what the pages that
+    // belong to no project read), a template names `@@PATH@@`, which is the project's file name.
     const stem = (type: string): string =>
       basename(String(content[type]!.source)).replace(/\.json$/, "");
     const entries: Array<[string, Json]> = [];
-    for (const file of [...LAYOUTS, ...PAGES]) {
+    for (const file of [...LAYOUTS, ...PAGE_DOCUMENTS]) {
       for (const node of nodes(readJson(file), (n) => n.$prototype === "ContentEntry")) {
         entries.push([file, node]);
       }
     }
     for (const [file, node] of entries) {
       expect(Object.keys(content), file).toContain(node.contentType);
-      if (node.contentType !== "docs") {
+      if (node.contentType === "projects") {
         expect(node.id, `${file} ${node.contentType}`).toBe(stem(node.contentType));
+      } else if (node.contentType !== "docs") {
+        const expected = file.startsWith("templates/") ? PATH_TOKEN : "workspace";
+        expect(node.id, `${file} ${node.contentType}`).toBe(expected);
       }
     }
-    expect(entries.map(([file, n]) => `${file} ${n.contentType}:${n.id ?? ""}`)).toEqual([
-      "layouts/base.json config:docusystem.config",
-      "layouts/base.json projects:projects.snapshot",
-      "layouts/base.json nav:nav",
-      "pages/[...path].json docs:",
-    ]);
-    // The catch-all page serves the docs collection.
-    expect(readJson("pages/[...path].json").$paths).toEqual({ contentType: "docs" });
+    expect(entries.map(([file, n]) => `${file} ${n.contentType}:${n.id ?? ""}`).sort()).toEqual(
+      [
+        "layouts/base.json config:workspace",
+        "layouts/base.json projects:projects.snapshot",
+        "layouts/base.json nav:workspace",
+        "templates/project-docs.json config:@@PATH@@",
+        "templates/project-docs.json nav:@@PATH@@",
+        "templates/project-docs.json docs:",
+        "templates/project-index.json config:@@PATH@@",
+        "templates/project-index.json nav:@@PATH@@",
+      ].sort(),
+    );
+    // The catch-all page of a project serves the docs collection.
+    expect(readJson("templates/project-docs.json").$paths).toEqual({ contentType: "docs" });
   });
 
-  test("the layouts read the resolved config, the catalog and the nav under the names the pages use", () => {
+  test("a template names its project in its entries and nowhere else, and renders to valid JSON", () => {
+    for (const file of TEMPLATES) {
+      const text = readText(file);
+      const marks = text.match(/@@[A-Z_]+@@/g) ?? [];
+      expect(new Set(marks), file).toEqual(new Set([PATH_TOKEN]));
+      // Only the `id` of a ContentEntry holds it: a token anywhere else would be written into a page.
+      const holders = nodes(readJson(file), (n) => n.id === PATH_TOKEN);
+      expect(holders.map((n) => n.$prototype)).toEqual(holders.map(() => "ContentEntry"));
+      expect(marks, file).toHaveLength(holders.length);
+      const rendered = renderTemplate(text, { path: "demo" }, file);
+      expect(() => JSON.parse(rendered), file).not.toThrow();
+      expect(rendered, file).not.toContain("@@");
+    }
+  });
+
+  test("the layouts read the workspace's own config and nav, and the catalog, under the names the pages use", () => {
     const base = readJson("layouts/base.json").state;
-    expect(base.config).toMatchObject({ contentType: "config", id: "docusystem.config" });
+    expect(base.config).toMatchObject({ contentType: "config", id: "workspace" });
     expect(base.catalog).toMatchObject({ contentType: "projects", id: "projects.snapshot" });
-    expect(base.nav).toMatchObject({ contentType: "nav", id: "nav" });
+    expect(base.nav).toMatchObject({ contentType: "nav", id: "workspace" });
+    // A page that names its own entries overrides the layout's: the project's pages do, the site's do not.
+    for (const file of TEMPLATES) {
+      const state = readJson(file).state;
+      expect(state.config, file).toMatchObject({ contentType: "config", id: PATH_TOKEN });
+      expect(state.nav, file).toMatchObject({ contentType: "nav", id: PATH_TOKEN });
+    }
+    for (const file of PAGES) {
+      expect(readJson(file).state.config, file).toBeUndefined();
+      expect(readJson(file).state.nav, file).toBeUndefined();
+    }
   });
 
-  test("the search collection covers the docs routes", () => {
+  test("the search collection covers every project's docs routes, below the root", () => {
     expect(PROJECT.search.output).toBe("/search-index.json");
-    expect(PROJECT.search.collections.docs.basePath).toBe("/docs/");
-    expect(PROJECT.content.docs.route.startsWith("/docs/")).toBe(true);
-    expect(PROJECT.content.docs.indexRoute.startsWith("/docs/")).toBe(true);
+    // A project's pages are `/<path>/docs/...`: the id of a document starts with its path, so the
+    // route is the id and the search base is the root of the site.
+    expect(PROJECT.search.collections.docs.basePath).toBe("/");
+    expect(PROJECT.content.docs.route).toBe("/{id:slug}/");
+    expect(PROJECT.content.docs.indexRoute).toBe("/{dir:slug}/");
   });
 });
 
@@ -292,7 +340,7 @@ describe("design tokens", () => {
   });
 
   test("components, layouts and pages use tokens, never raw hex colours", () => {
-    for (const file of [...COMPONENTS, ...LAYOUTS, ...PAGES]) {
+    for (const file of [...COMPONENTS, ...LAYOUTS, ...PAGE_DOCUMENTS]) {
       // A colour is 3, 4, 6 or 8 hex digits after `#`; "#main" and "#top" are anchors.
       const hex = (readText(file).match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).filter(
         (h) => [4, 5, 7, 9].includes(h.length) && /^#[0-9a-fA-F]+$/.test(h),
@@ -314,7 +362,7 @@ describe("design tokens", () => {
   });
 
   test("the search highlight is a tint of the action colour with the text colour on it", () => {
-    // The contrast gate (WP4) reads exactly this rule; test/site/contrast.test.ts runs the gate on it.
+    // The contrast gate reads exactly this rule; test/site/contrast.test.ts runs the gate on it.
     const rule = (readJson("components/docs-search.json").style as Json)["& .hl"] as Json;
     expect(rule.backgroundColor).toBe("color-mix(in srgb, var(--color-action) 22%, transparent)");
     expect(rule.color).toBe("var(--color-text)");
@@ -324,7 +372,7 @@ describe("design tokens", () => {
 describe("the JavaScript in the documents", () => {
   test("every Function body is valid JavaScript", () => {
     let count = 0;
-    for (const file of [...COMPONENTS, ...LAYOUTS, ...PAGES]) {
+    for (const file of [...COMPONENTS, ...LAYOUTS, ...PAGE_DOCUMENTS]) {
       for (const { where, body } of bodies(readJson(file))) {
         count += 1;
         expect(
@@ -337,7 +385,7 @@ describe("the JavaScript in the documents", () => {
   });
 
   test("a compiler-timed Function has no sidecar", () => {
-    for (const file of [...LAYOUTS, ...PAGES]) {
+    for (const file of [...LAYOUTS, ...PAGE_DOCUMENTS]) {
       for (const [key, value] of Object.entries((readJson(file).state ?? {}) as Json)) {
         if (value?.timing === "compiler" && value.$prototype === "Function") {
           expect(value.$src, `${file} state.${key}`).toBeUndefined();
@@ -347,7 +395,7 @@ describe("the JavaScript in the documents", () => {
   });
 
   test("every layout and page derives its values at build time, so pages ship no JavaScript of their own", () => {
-    for (const file of [...LAYOUTS, ...PAGES]) {
+    for (const file of [...LAYOUTS, ...PAGE_DOCUMENTS]) {
       for (const [key, value] of Object.entries((readJson(file).state ?? {}) as Json)) {
         const ok = typeof value === "object" && value !== null && value.timing === "compiler";
         expect(ok, `${file} state.${key} must be compiler-timed`).toBe(true);
@@ -357,25 +405,13 @@ describe("the JavaScript in the documents", () => {
 });
 
 describe("the project switcher", () => {
-  const between = (text: string): string => {
-    const a = text.indexOf("// switcher:start");
-    const b = text.indexOf("// switcher:end");
-    expect(a).toBeGreaterThan(-1);
-    expect(b).toBeGreaterThan(a);
-    return text.slice(a, b + "// switcher:end".length);
-  };
   const layoutBody: string = readJson("layouts/base.json").state.switcherGroups.body;
-  const componentBody: string = readJson("components/project-switcher.json").state.onMount.body;
 
   const groups = (data: unknown, current: string) =>
     new Function("state", layoutBody)({
       catalog: { data },
       config: { data: { slug: current } },
     }) as Array<{ platform: string; label: string; items: Array<Json> }>;
-
-  test("the grouping logic is the same text at build time and in the browser", () => {
-    expect(between(componentBody)).toBe(between(layoutBody));
-  });
 
   test("projects are grouped by platform in the fixed order, sorted by title, with the current one marked", () => {
     const result = groups(
@@ -442,30 +478,25 @@ describe("the project switcher", () => {
     expect(result.flatMap((g) => g.items)).toHaveLength(5);
   });
 
-  test("the sample catalog of the build test is grouped as the build test expects", () => {
+  test("the sample catalog is grouped in the fixed order, one current project", () => {
     const result = groups(SAMPLE_CATALOG, "example");
     expect(result.map((g) => g.platform)).toEqual(["frappe", "odoo", "nixos", "general"]);
     expect(result.flatMap((g) => g.items).filter((i) => i.current)).toHaveLength(1);
   });
 
-  // The bundled catalog is WP1's (site/data/projects.snapshot.json); until it is merged there is
-  // nothing to read, and the test below starts running with it.
-  test.skipIf(!exists("data/projects.snapshot.json"))(
-    "whatever the live catalog holds, the bundled snapshot builds into groups without a throw",
-    () => {
-      // A weekly job refreshes the snapshot from avunu.net: it may have one project or one
-      // platform, and the tests must not care. Every entry of a valid catalog is listed once.
-      const snapshot = JSON.parse(readText("data/projects.snapshot.json"));
-      const result = groups(snapshot, "frappe-nix");
-      expect(result.flatMap((g) => g.items)).toHaveLength(snapshot.projects.length);
-      for (const one of [
-        catalog([entry("only", "nixos")]),
-        catalog([entry("a", "odoo"), entry("b", "odoo")]),
-      ]) {
-        expect(groups(one, "none").flatMap((g) => g.items)).toHaveLength(one.projects.length);
-      }
-    },
-  );
+  test("whatever the bundled snapshot holds, it builds into groups without a throw", () => {
+    // The snapshot is refreshed from avunu.net by hand: it may have one project or one platform, and
+    // the tests must not care. Every entry of a valid catalog is listed once.
+    const snapshot = JSON.parse(readText("data/projects.snapshot.json"));
+    const result = groups(snapshot, "frappe-nix");
+    expect(result.flatMap((g) => g.items)).toHaveLength(snapshot.projects.length);
+    for (const one of [
+      catalog([entry("only", "nixos")]),
+      catalog([entry("a", "odoo"), entry("b", "odoo")]),
+    ]) {
+      expect(groups(one, "none").flatMap((g) => g.items)).toHaveLength(one.projects.length);
+    }
+  });
 
   test("a bad entry never discards the others, and the catalog cannot flood or confuse the list", () => {
     const result = groups(
@@ -512,10 +543,11 @@ describe("the project switcher", () => {
 });
 
 describe("the content type of the docs", () => {
-  test("mirrors what docs.ts and nav.ts (WP3) assume: exclude, where, routes, alerts and fields", () => {
+  test("mirrors what docs.ts and nav.ts assume: exclude, where, routes, alerts and fields", () => {
     const docs = PROJECT.content.docs;
-    expect(docs.route).toBe("/docs/{id:slug}/");
-    expect(docs.indexRoute).toBe("/docs/{dir:slug}/");
+    // The staged Markdown of a project is `<path>/docs/...`, so a document's id is its address.
+    expect(docs.route).toBe("/{id:slug}/");
+    expect(docs.indexRoute).toBe("/{dir:slug}/");
     expect(docs.where).toEqual({ draft: { $ne: true }, publish: { $ne: false } });
     expect(docs.exclude).toEqual(["**/node_modules/**", "**/.*", "**/.*/**", "**/_*", "**/_*/**"]);
     expect(Object.keys(docs.alerts).sort()).toEqual([
@@ -525,7 +557,7 @@ describe("the content type of the docs", () => {
       "TIP",
       "WARNING",
     ]);
-    // The front-matter keys of section 7.1: all optional, none required.
+    // The front-matter keys: all optional, none required.
     expect(Object.keys(docs.schema.properties).sort()).toEqual(
       [
         "description",
@@ -542,7 +574,7 @@ describe("the content type of the docs", () => {
     expect(docs.schema.required).toEqual([]);
   });
 
-  test("links are generated per mode: the base says warn and the assembler overrides it", () => {
+  test("links are generated per mode: the base says warn and the build overrides it", () => {
     expect(PROJECT.content.docs.links).toBe("warn");
     expect(PROJECT.build).toMatchObject({ outDir: "./dist", trailingSlash: "always" });
   });

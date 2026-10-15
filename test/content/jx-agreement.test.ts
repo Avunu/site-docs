@@ -7,9 +7,12 @@
 //   - Jx itself: the pure rule and route modules of the pinned @jxsuite/parser, loaded from the
 //     installed package by file (they are not exported subpaths). If Jx moves them, this test fails
 //     and says so; update it with the pin (the `jx` Dependabot group runs it).
-//   - site/project.base.json (WP7): the rules the base project declares. Until that file is
-//     merged the rules come from fixtures/docs-content-type.json (a copy from the starter); once it
-//     exists, the second test below compares it to the fixture and the first one reads it.
+//   - site/project.base.json: the rules the base project declares; the second test below compares
+//     them to fixtures/docs-content-type.json, and the first ones read them.
+//
+// The workspace stages every project's Markdown at `.generated/docs/<path>/docs/`, so a page's id in
+// Jx is `<path>/docs/<file>` and its route is the id slugified: `/<path>/docs/<file>/`. docs.ts gets
+// the same address from the prefix `/<path>/docs`.
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -77,6 +80,11 @@ async function loadJx(): Promise<{ routes: JxRoutes; rules: JxRules }> {
 }
 
 const jx = await loadJx();
+
+/** The project the pages of this test belong to, and where its Markdown is staged. */
+const PROJECT_PATH = "demo";
+const STAGED = `${PROJECT_PATH}/docs`;
+const PREFIX = `/${STAGED}`;
 
 // ---- inputs ------------------------------------------------------------------------------------
 
@@ -276,13 +284,20 @@ describe("the rules mirror Jx's", () => {
     for (const path of paths().filter((p) => /\.md$/i.test(p))) {
       const dir = dirOf(path);
       const name = nameOf(path);
-      const rendered = jx.routes.renderRoute(spec, { id: stemOf(path), data: {}, path });
+      const rendered = jx.routes.renderRoute(spec, {
+        id: `${STAGED}/${stemOf(path)}`,
+        data: {},
+        path: `${STAGED}/${path}`,
+      });
       // A name with no letter or digit in it cannot be routed by Jx at all; nav.ts then gives it the
       // address of its folder, where dedupe() keeps the folder's own page and warns.
       if ("error" in rendered) continue;
       routed++;
       const theirs = decodeURIComponent(jx.routes.routeHref(rendered.route, "always"));
-      const ours = urlFor({ dir, base: name.replace(/\.[^.]+$/, ""), isIndex: isIndexName(name) });
+      const ours = urlFor(
+        { dir, base: name.replace(/\.[^.]+$/, ""), isIndex: isIndexName(name) },
+        PREFIX,
+      );
       if (ours !== theirs) disagreements.push(`${path}: docusystem ${ours}, Jx ${theirs}`);
     }
     expect(routed).toBeGreaterThan(1000);
@@ -333,9 +348,9 @@ describe("site/project.base.json", () => {
   );
 });
 
-test("the fixture is the starter's rules", () => {
-  expect(fixtureRules.route).toBe("/docs/{id:slug}/");
-  expect(fixtureRules.indexRoute).toBe("/docs/{dir:slug}/");
+test("the fixture holds the rules the workspace publishes with", () => {
+  expect(fixtureRules.route).toBe("/{id:slug}/");
+  expect(fixtureRules.indexRoute).toBe("/{dir:slug}/");
   expect(fixtureRules.exclude).toEqual([
     "**/node_modules/**",
     "**/.*",

@@ -1,5 +1,0 @@
-{
-  "title": "Minimal root",
-  "tagName": "main",
-  "children": [{ "tagName": "h1", "textContent": "Minimal root" }]
-}

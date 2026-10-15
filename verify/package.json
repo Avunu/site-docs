@@ -1,13 +1,12 @@
 {
-  "name": "docusystem-verify",
+  "name": "site-docs-verify",
   "version": "0.0.0",
   "private": true,
-  "description": "The browser suites of @avunu/docusystem: they build a throwaway adopting repository from the packed package and check the site it makes in a real Chrome. Maintainer tooling, not part of the published package.",
+  "description": "The browser suites of the docs workspace: they build a fixture workspace with the repository's own command line and check the site it makes in a real Chrome. Maintainer tooling.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "all": "bun run.ts",
-    "scaffold": "bun scaffold.ts",
     "axe": "bun axe.ts",
     "csp": "bun csp.ts",
     "drawer": "bun drawer.ts",

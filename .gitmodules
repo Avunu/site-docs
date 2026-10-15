@@ -1,0 +1,105 @@
+[submodule "projects/automated-subscriptions"]
+	path = projects/automated-subscriptions
+	url = https://github.com/Avunu/automated_subscriptions.git
+	branch = develop
+	shallow = true
+[submodule "projects/avunu-odoo-addons"]
+	path = projects/avunu-odoo-addons
+	url = https://github.com/Avunu/avunu-odoo-addons.git
+	branch = 18.0
+	shallow = true
+[submodule "projects/carbon-theme"]
+	path = projects/carbon-theme
+	url = https://github.com/Avunu/carbon_frappe.git
+	branch = develop
+	shallow = true
+[submodule "projects/cloudflare-email"]
+	path = projects/cloudflare-email
+	url = https://github.com/Avunu/cloudflare-email-relay.git
+	branch = main
+	shallow = true
+[submodule "projects/cloudflare-email-delivery"]
+	path = projects/cloudflare-email-delivery
+	url = https://github.com/Avunu/cloudflare_email_delivery.git
+	branch = main
+	shallow = true
+[submodule "projects/data-steward"]
+	path = projects/data-steward
+	url = https://github.com/Avunu/jailbreak.git
+	branch = develop
+	shallow = true
+[submodule "projects/erpnext-cis-plus"]
+	path = projects/erpnext-cis-plus
+	url = https://github.com/Avunu/erpnext_cis_plus.git
+	branch = develop
+	shallow = true
+[submodule "projects/erpnext-taskview"]
+	path = projects/erpnext-taskview
+	url = https://github.com/Avunu/erpnext_taskview.git
+	branch = main
+	shallow = true
+[submodule "projects/esign-webforms"]
+	path = projects/esign-webforms
+	url = https://github.com/Avunu/esign.git
+	branch = develop
+	shallow = true
+[submodule "projects/frappe-nix"]
+	path = projects/frappe-nix
+	url = https://github.com/Avunu/frappe-nix.git
+	branch = main
+	shallow = true
+[submodule "projects/mercury-banking-integration"]
+	path = projects/mercury-banking-integration
+	url = https://github.com/Avunu/mercury_integration.git
+	branch = main
+	shallow = true
+[submodule "projects/messaging"]
+	path = projects/messaging
+	url = https://github.com/Avunu/messaging.git
+	branch = main
+	shallow = true
+[submodule "projects/nixos-micro-desktop"]
+	path = projects/nixos-micro-desktop
+	url = https://github.com/Avunu/nixos-micro-desktop.git
+	branch = main
+	shallow = true
+[submodule "projects/nixos-rclone"]
+	path = projects/nixos-rclone
+	url = https://github.com/Avunu/nixos-rclone.git
+	branch = main
+	shallow = true
+[submodule "projects/odoo-nix"]
+	path = projects/odoo-nix
+	url = https://github.com/Avunu/odoo-nix.git
+	branch = main
+	shallow = true
+[submodule "projects/postgrid-direct-mail"]
+	path = projects/postgrid-direct-mail
+	url = https://github.com/Avunu/postgrid_integration.git
+	branch = develop
+	shallow = true
+[submodule "projects/web-kiosk"]
+	path = projects/web-kiosk
+	url = https://github.com/Avunu/web_kiosk.git
+	branch = main
+	shallow = true
+[submodule "projects/wordpress-cloudflare-email"]
+	path = projects/wordpress-cloudflare-email
+	url = https://github.com/Avunu/wordpress-cloudflare-email.git
+	branch = main
+	shallow = true
+[submodule "projects/wordpress-jwt-auth"]
+	path = projects/wordpress-jwt-auth
+	url = https://github.com/Avunu/wordpress-jwt-auth.git
+	branch = main
+	shallow = true
+[submodule "projects/wordpress-nix"]
+	path = projects/wordpress-nix
+	url = https://github.com/Avunu/wordpress-nix.git
+	branch = main
+	shallow = true
+[submodule "projects/wp-cloud-files"]
+	path = projects/wp-cloud-files
+	url = https://github.com/Avunu/wp-cloud-files.git
+	branch = main
+	shallow = true

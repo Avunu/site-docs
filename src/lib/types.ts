@@ -5,8 +5,8 @@ import type { Platform } from "./platforms.js";
 
 export type { Platform };
 
-/** The contents of docusystem.config.json, as validated. */
-export interface DocsConfig {
+/** The facts of one site or project that the pages, the postbuild and the sitemap read. */
+export interface SiteConfig {
   name: string;
   tagline: string;
   slug: string;
@@ -16,54 +16,20 @@ export interface DocsConfig {
   license: string;
   branch?: string;
   docs?: string;
-  theme?: { light?: Record<string, string>; dark?: Record<string, string> };
-  images?: "optimize" | "off";
-  jx?: Record<string, unknown>;
 }
 
-/** Every folder and file a run reads or writes, all absolute. */
+/** The folders a stage of one project reads and writes, all absolute. */
 export interface Paths {
-  /** The folder with docusystem.config.json and package.json. */
+  /** The workspace root: what a repository-relative path in a message is relative to. */
   siteDir: string;
-  /** The repository root: the nearest ancestor of the site folder with a `.git`. */
+  /** The project's repository root: where a link that leaves the Markdown folder is resolved. */
   repoRoot: string;
-  /** The Markdown folder. */
+  /** The project's Markdown folder. */
   docsDir: string;
-  /** <siteDir>/.docusystem: everything the CLI generates; ignored by git. */
-  work: string;
-  /** <work>/site: the assembled Jx project root. */
-  root: string;
-  /** <root>/.generated/docs: the staged copy of the Markdown (what Jx reads as the `docs` content type). */
+  /** The staged copy of the Markdown (what Jx reads as the `docs` content type). */
   stagedDocs: string;
-  /** <root>/.generated/nav.json: the sidebar, previous/next and landing cards. */
+  /** Where the sidebar, previous/next and landing cards of the project are written (nav only). */
   navFile: string;
-  /** <root>/dist: Jx's output, post-processed in place. */
-  jxDist: string;
-  /** <siteDir>/dist: the published copy; the only path CI uploads. */
-  dist: string;
-  /** <work>/serve: dev only, the copy of dist that the dev server answers from. */
-  serve: string;
-  /** <work>/manifest.json */
-  manifest: string;
-  /** <work>/jx.log */
-  jxLog: string;
-  /** <work>/lock: the pid file. */
-  lock: string;
-}
-
-/** Where a file of the assembled root came from. */
-export type Origin = "package" | "override" | "generated";
-
-/** `<work>/manifest.json`: the record of what the last assemble put in the root. */
-export interface Manifest {
-  docusystem: string;
-  runtime: string;
-  jx: Record<string, string>;
-  files: Record<string, Origin>;
-  shadowed: string[];
-  added: string[];
-  catalog: "bundled" | "live";
-  strict: boolean;
 }
 
 /** One thing a run found wrong (or worth saying), with its location when it has one. */
@@ -72,12 +38,6 @@ export interface Problem {
   message: string;
   file?: string;
   line?: number;
-}
-
-/** One line of a checklist (`doctor`). */
-export interface Finding {
-  level: "ok" | "warning" | "error";
-  message: string;
 }
 
 /**

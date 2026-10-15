@@ -1,6 +1,5 @@
-// Step 15 of the pipeline (section 5.1): the WCAG contrast gate of `docusystem check`, over the design
-// tokens of the assembled project (the package's tokens with the project's `theme` overrides applied),
-// so that a theme cannot quietly make the site inaccessible.
+// The WCAG contrast gate of `check`, over the design tokens of the assembled project, so that a change
+// of a token cannot quietly make the site inaccessible.
 //
 // It resolves every colour token for the light theme and for the dark theme (the `@--dark` overrides
 // on top of the light tokens), then tests the foreground and background pairs the components use:

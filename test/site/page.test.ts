@@ -1,9 +1,12 @@
-// The logic of pages/[...path].json, which is JSON with JavaScript bodies: it is run here on small
-// trees, because the title, the one-h1 rule and the escaping of `${` are what readers and search see.
+// The logic of templates/project-docs.json (every project's documentation pages), of
+// templates/project-index.json (its landing page) and of pages/index.json (the landing page of the
+// site), which are JSON with JavaScript bodies: it is run here on small trees, because the title, the
+// one-h1 rule and the escaping of `${` are what readers and search see.
 import { expect, test } from "vitest";
 import { readJson } from "./support/site.js";
 
-const page = readJson("pages/[...path].json") as { state: Record<string, { body?: string }> };
+type Bodies = { state: Record<string, { body?: string }> };
+const page = readJson("templates/project-docs.json") as Bodies;
 
 type Node = Record<string, any> | Node[] | string;
 interface Toc {
@@ -192,8 +195,8 @@ test("the text of <title> is escaped before Jx writes it (Jx writes that one ele
   expect(derive({ title: "Install", children: [] }).headTitle).toBe("Install · frappe-nix");
 });
 
-test("the landing page's cards show titles and descriptions as text, whatever they hold", () => {
-  const landing = readJson("pages/index.json") as { state: Record<string, { body?: string }> };
+test("the project landing page's cards show titles and descriptions as text, whatever they hold", () => {
+  const landing = readJson("templates/project-index.json") as Bodies;
   const state = {
     nav: {
       data: {
@@ -201,10 +204,10 @@ test("the landing page's cards show titles and descriptions as text, whatever th
           {
             title: "Set ${HOME} safely & <b>",
             description: "Use ${1+1} & <angle> brackets.",
-            url: "/docs/templated/",
+            url: "/example/docs/templated/",
             section: "Guides ${x}",
           },
-          { title: "Plain", description: "", url: "/docs/plain/", section: "" },
+          { title: "Plain", description: "", url: "/example/docs/plain/", section: "" },
         ],
       },
     },
@@ -219,14 +222,71 @@ test("the landing page's cards show titles and descriptions as text, whatever th
   for (const card of cards)
     for (const span of spans(card)) expect(span.textContent).toBeUndefined();
   expect(spans(cards[1]).map((span) => span.innerHTML)).toEqual(["Documentation", "Plain", ""]);
-  expect(cards[0].children[0].attributes.href).toBe("/docs/templated/");
+  expect(cards[0].children[0].attributes.href).toBe("/example/docs/templated/");
 });
 
-/** The "Edit this page" URL for a document, from the resolved config and the page's path. */
-const editUrl = (config: Record<string, unknown>, path: string): string =>
+test("the site landing page groups the projects that have documentation here, and shows them as text", () => {
+  const landing = readJson("pages/index.json") as Bodies;
+  const project = (slug: string, platform: string, extra: Record<string, unknown> = {}) => ({
+    slug,
+    title: slug,
+    platform,
+    summary: "",
+    license: "MIT",
+    docs: `https://docs.example.org/${slug}/`,
+    ...extra,
+  });
+  const run = (projects: unknown[]) =>
+    new Function("state", landing.state.projectGroups!.body!)({
+      catalog: { data: { projects } },
+    }) as Array<any>;
+  const groups = run([
+    project("zeta", "nixos", { title: "Zeta ${x} & <b>", summary: "Use ${1+1} <here>." }),
+    project("alpha", "frappe", { license: "AGPL-3.0" }),
+    project("beta", "frappe", { title: "beta" }),
+    project("no-docs", "odoo", { docs: null }),
+    project("insecure", "odoo", { docs: "http://docs.example.org/insecure/" }),
+    project("mystery", "mystery"),
+  ]);
+  // The platforms are in the fixed order, an unknown one last; a project without an https docs address is left out.
+  expect(groups.map((g) => g.children[0].innerHTML)).toEqual([
+    "Frappe &amp; ERPNext",
+    "NixOS",
+    "mystery",
+  ]);
+  const cards = (group: any) => group.children[1].children as Array<any>;
+  // Sorted by title, case-insensitively; each card links to the project's own landing page (a path).
+  expect(cards(groups[0]).map((li) => li.children[0].attributes.href)).toEqual([
+    "/alpha/",
+    "/beta/",
+  ]);
+  const spans = (card: any) => card.children[0].children as Array<Record<string, any>>;
+  expect(spans(cards(groups[0])[0]).map((span) => span.innerHTML)).toEqual([
+    "AGPL-3.0",
+    "alpha",
+    "",
+  ]);
+  expect(spans(cards(groups[1])[0]).map((span) => span.innerHTML)).toEqual([
+    "MIT",
+    "Zeta &#36;{x} &amp; &lt;b&gt;",
+    "Use &#36;{1+1} &lt;here&gt;.",
+  ]);
+  for (const group of groups)
+    for (const card of cards(group))
+      for (const span of spans(card)) expect(span.textContent).toBeUndefined();
+  expect(run([])).toEqual([]);
+  expect(run([project("x", "frappe", { docs: null })])).toEqual([]);
+});
+
+/**
+ * The "Edit this page" URL for a document, from the project's resolved config and the page's path.
+ * The staged Markdown of a project is `<path>/docs/...`, so that is the path Jx reports for the page:
+ * `file` is the file relative to the project's own Markdown folder.
+ */
+const editUrl = (config: Record<string, unknown>, file: string): string =>
   new Function("state", page.state.editUrl!.body!)({
-    config: { data: config },
-    page: { _meta: { path } },
+    config: { data: { path: "example", ...config } },
+    page: { _meta: { path: `${config.path ?? "example"}/docs/${file}` } },
   }) as string;
 
 test("the edit link points into the configured docs folder of the configured branch", () => {
@@ -234,10 +294,11 @@ test("the edit link points into the configured docs folder of the configured bra
   expect(editUrl(config, "guides/install.md")).toBe(
     "https://github.com/Avunu/example/edit/main/docs/guides/install.md",
   );
-  // The docs folder is the config's, wherever in the repository it is (the starter hard-coded `docs`).
-  expect(editUrl({ ...config, branch: "18.0", docsPath: "documentation/user" }, "a.md")).toBe(
-    "https://github.com/Avunu/example/edit/18.0/documentation/user/a.md",
-  );
+  // The docs folder is the config's, wherever in the repository it is (not a fixed `docs`), and the
+  // project's own path in the address of the page is not part of the file.
+  expect(
+    editUrl({ ...config, path: "other", branch: "18.0", docsPath: "documentation/user" }, "a.md"),
+  ).toBe("https://github.com/Avunu/example/edit/18.0/documentation/user/a.md");
   // A space in a file name is written %20 in the URL.
   expect(editUrl(config, "guides/Configuration Options.md")).toBe(
     "https://github.com/Avunu/example/edit/main/docs/guides/Configuration%20Options.md",

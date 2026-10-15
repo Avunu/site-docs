@@ -5,8 +5,8 @@
 ## How it was verified
 
 - [ ] `npm run check`
-- [ ] `npm run check:pack` and `npm run test:pack` (when the package contents or the CLI changed)
+- [ ] `node build/cli.js check` with the submodules checked out (when the shell, the build or a project's documentation is affected)
 
-## Breaking for consumers?
+## Does it change what readers see?
 
-<!-- A changed URL, config key, CLI flag, token name, workflow input, permission or job name is breaking. Say so, or say "no". -->
+<!-- A changed address (docs.avunu.net/<path>/...), a removed page or a changed project path breaks links. Say so, or say "no". -->

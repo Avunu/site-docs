@@ -5,7 +5,7 @@
 //   bun drawer.ts <dist> [route]
 import { resolve } from "node:path";
 import type { Page } from "playwright-core";
-import { defaultDocsRoute, launch, serve, snapshotOf, stubCatalog } from "./lib.ts";
+import { defaultDocsRoute, launch, serve, stubNetwork } from "./lib.ts";
 
 const [distArg, routeArg] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (!distArg) {
@@ -14,7 +14,6 @@ if (!distArg) {
 }
 const dist = resolve(distArg);
 const route = routeArg ?? defaultDocsRoute(dist);
-const snapshot = snapshotOf(dist);
 let failures = 0;
 const check = (ok: boolean, what: string, detail = "") => {
   if (!ok) failures++;
@@ -24,7 +23,7 @@ const check = (ok: boolean, what: string, detail = "") => {
 const server = serve(dist);
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-await stubCatalog(context, snapshot);
+await stubNetwork(context);
 const page = await context.newPage();
 await page.goto(`http://localhost:${server.port}${route}`, { waitUntil: "networkidle" });
 await page.waitForTimeout(300);

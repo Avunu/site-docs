@@ -1,42 +1,10 @@
-// A small stand-in for `assemble` (WP2) so that the site assets can be built by the real, pinned Jx
-// before WP2 exists: it copies the package's site/ into a folder, writes what WP2, WP3 and WP1 will
-// write (project.json, the resolved config, CNAME, the catalog, the staged Markdown and the nav
-// data from fixtures) and links the four Jx packages. Once WP2 is merged, test/assemble builds the
-// same root with the real `assemble` and the integration checks listed in the pull request run.
+// Running the real, pinned Jx on an assembled root, and reading what came out. The root itself is
+// made by workspace.ts, with the real workspace build.
 import { spawnSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { join } from "node:path";
 import { REPO_ROOT } from "../../support/index.js";
-import type { Catalog, NavData } from "../../../src/lib/types.js";
-import { SAMPLE_CATALOG } from "./catalog.js";
-import { DOCS_FIXTURE, FIXTURE_CONFIG, NAV_FIXTURE } from "./fixtures.js";
-import { JX_PACKAGES, SITE, type Json } from "./site.js";
-
-export interface RootOptions {
-  /** Replaces keys of the resolved config (`docusystem.config.json` of the root). */
-  config?: Partial<Record<keyof typeof FIXTURE_CONFIG, string>>;
-  /** `content.docs.links`: "error" when strict (the default, as in CI), "warn" otherwise. */
-  strict?: boolean;
-  /** The catalog snapshot; `null` writes none. */
-  catalog?: Catalog | null;
-  /** The sidebar data; by default the one recorded for the documentation fixture. */
-  nav?: NavData;
-  /** A folder to stage as the documentation; by default the documentation fixture. */
-  docs?: string;
-  /** More staged Markdown, by path below the documentation folder. */
-  extraDocs?: Record<string, string>;
-  /** Replaces the base project before it is written (after `$schema` and `$comment` are dropped). */
-  project?: (project: Json) => void;
-}
+import { JX_PACKAGES, type Json } from "./site.js";
 
 /** The directory of an installed Jx package, from this repository's own `node_modules`. */
 export function jxPackage(name: string): string {
@@ -57,58 +25,6 @@ export function jxVersions(): Record<string, string> {
       (JSON.parse(readFileSync(join(jxPackage(name), "package.json"), "utf8")) as Json).version,
     ]),
   );
-}
-
-const writeText = (file: string, text: string): void => {
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, text);
-};
-const writeJson = (file: string, value: unknown): void =>
-  writeText(file, `${JSON.stringify(value, null, 2)}\n`);
-
-/**
- * Builds a Jx project root in `root` (an existing or new folder) the way section 3.2 lays it out, and
- * returns it. `project.json` is the base without `$schema` and `$comment`, plus name, url and links.
- */
-export function assembleRoot(root: string, o: RootOptions = {}): string {
-  const config = { ...FIXTURE_CONFIG, ...o.config };
-  mkdirSync(root, { recursive: true });
-
-  // 1. the package's site/ (everything but the base project and the bundled catalog)
-  for (const folder of ["components", "layouts", "pages", "public"]) {
-    cpSync(join(SITE, folder), join(root, folder), { recursive: true, dereference: false });
-  }
-
-  // 2. generated files
-  const base = JSON.parse(readFileSync(join(SITE, "project.base.json"), "utf8")) as Json;
-  delete base.$schema;
-  delete base.$comment;
-  base.name = config.name;
-  base.url = `https://${config.domain}`;
-  base.content.docs.links = o.strict === false ? "warn" : "error";
-  o.project?.(base);
-  writeJson(join(root, "project.json"), base);
-  writeJson(join(root, "docusystem.config.json"), config);
-  writeText(join(root, "public", "CNAME"), `${config.domain}\n`);
-  if (o.catalog !== null) {
-    writeJson(join(root, "data", "projects.snapshot.json"), o.catalog ?? SAMPLE_CATALOG);
-  }
-
-  // 3. the staged Markdown and its navigation
-  cpSync(o.docs ?? DOCS_FIXTURE, join(root, ".generated", "docs"), { recursive: true });
-  for (const [path, text] of Object.entries(o.extraDocs ?? {})) {
-    writeText(join(root, ".generated", "docs", ...path.split("/")), text);
-  }
-  const nav = o.nav ?? (JSON.parse(readFileSync(NAV_FIXTURE, "utf8")) as NavData);
-  writeJson(join(root, ".generated", "nav.json"), nav);
-
-  // 4. the Jx packages, as junction links (a junction needs no privilege on Windows)
-  for (const name of JX_PACKAGES) {
-    const link = join(root, "node_modules", ...name.split("/"));
-    mkdirSync(dirname(link), { recursive: true });
-    symlinkSync(jxPackage(name), link, "junction");
-  }
-  return root;
 }
 
 export interface JxRun {

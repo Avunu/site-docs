@@ -34,7 +34,7 @@ const nav = (urls: string[]): NavData => ({
 });
 
 describe("isStrict", () => {
-  // strict = !lenient && (--strict || CI=true); lenient = --lenient || DOCUSYSTEM_LENIENT=1
+  // strict = !lenient && (--strict || CI=true); lenient = --lenient || DOCS_LENIENT=1
   const cases: Array<
     [string, { lenient?: boolean; strict?: boolean }, NodeJS.ProcessEnv, boolean]
   > = [
@@ -45,10 +45,10 @@ describe("isStrict", () => {
     ["CI=false", {}, { CI: "false" }, false],
     ["--lenient", { lenient: true }, {}, false],
     ["--lenient beats CI=true", { lenient: true }, { CI: "true" }, false],
-    ["DOCUSYSTEM_LENIENT=1", {}, { DOCUSYSTEM_LENIENT: "1" }, false],
-    ["DOCUSYSTEM_LENIENT=1 beats CI=true", {}, { DOCUSYSTEM_LENIENT: "1", CI: "true" }, false],
-    ["DOCUSYSTEM_LENIENT=1 beats --strict", { strict: true }, { DOCUSYSTEM_LENIENT: "1" }, false],
-    ["DOCUSYSTEM_LENIENT=0 does not count", {}, { DOCUSYSTEM_LENIENT: "0", CI: "true" }, true],
+    ["DOCS_LENIENT=1", {}, { DOCS_LENIENT: "1" }, false],
+    ["DOCS_LENIENT=1 beats CI=true", {}, { DOCS_LENIENT: "1", CI: "true" }, false],
+    ["DOCS_LENIENT=1 beats --strict", { strict: true }, { DOCS_LENIENT: "1" }, false],
+    ["DOCS_LENIENT=0 does not count", {}, { DOCS_LENIENT: "0", CI: "true" }, true],
     ["--strict with CI=true", { strict: true }, { CI: "true" }, true],
     ["--strict is explicit: no CI needed", { strict: true, lenient: false }, {}, true],
   ];
@@ -232,12 +232,12 @@ describe("expectedRoutes", () => {
 describe("messages", () => {
   test("the strict failure names the count and the way out", () => {
     expect(strictFailure(3)).toBe(
-      "docusystem: 3 document problem(s) above fail the build. Fix the documents, or run with --lenient while you work through them.",
+      "docs: 3 document problem(s) above fail the build. Fix the documents, or run with --lenient while you work through them.",
     );
   });
 
   test("the image hint appears for sharp and libstdc++ only", () => {
-    expect(imageHint("Error: Could not load the sharp module")).toContain('"images": "off"');
+    expect(imageHint("Error: Could not load the sharp module")).toContain("libstdc++");
     expect(imageHint("libstdc++.so.6: cannot open shared object file")).toContain("sharp");
     expect(imageHint(recorded("compile-error"))).toBeNull();
   });
@@ -255,7 +255,7 @@ describe("messages", () => {
   // machine used to be printed as '<path>', which neither cmd.exe nor PowerShell can run.
   test("shellCommand writes a Windows path as the word it is, and double-quotes what a Windows shell would split", () => {
     const node = "C:\\hostedtoolcache\\windows\\node\\24.21.0\\x64\\node.exe";
-    const root = "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\docs-site\\.docusystem\\site";
+    const root = "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\docs-site\\.site-docs\\site";
     expect(shellCommand([node, "/fake/jx/bin/jx.js", "build", root], "win32")).toBe(
       `${node} /fake/jx/bin/jx.js build ${root}`,
     );

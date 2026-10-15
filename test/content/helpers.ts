@@ -17,26 +17,17 @@ export function makeTree(files: TreeSpec = {}): string {
 }
 
 /**
- * The paths of a run for a repository at `repoRoot` whose site folder is `docs-site` and whose
- * Markdown folder is `docs` (both overridable).
+ * The paths of a stage for a repository at `repoRoot` whose Markdown folder is `docs` (overridable),
+ * with the workspace root `docs-site` beside it.
  */
 export function pathsIn(repoRoot: string, o: { site?: string; docs?: string } = {}): Paths {
   const siteDir = join(repoRoot, o.site ?? "docs-site");
-  const work = join(siteDir, ".docusystem");
-  const root = join(work, "site");
+  const root = join(siteDir, ".site-docs", "site");
   return {
     siteDir,
     repoRoot,
     docsDir: join(repoRoot, o.docs ?? "docs"),
-    work,
-    root,
     stagedDocs: join(root, ".generated", "docs"),
     navFile: join(root, ".generated", "nav.json"),
-    jxDist: join(root, "dist"),
-    dist: join(siteDir, "dist"),
-    serve: join(work, "serve"),
-    manifest: join(work, "manifest.json"),
-    jxLog: join(work, "jx.log"),
-    lock: join(work, "lock"),
   };
 }

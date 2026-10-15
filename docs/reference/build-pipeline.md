@@ -1,147 +1,99 @@
 ---
 title: Build pipeline
-description: The steps from a project's shell to the published dist folder, the generated Jx project root, the manifest, and how the dev server and CI use them.
-order: 4
-updated: 2026-10-06
+description: The steps from the registry to the published folder, what is asserted about the result, the Content-Security-Policy every page carries, and the work folder.
+order: 3
+updated: 2026-10-15
 tags: [reference, pipeline, jx]
 ---
 
-`docusystem build` and `docusystem check` run one pipeline. Steps 1 to 14 are `build`; steps 15 to 17 are added by `check`. Every step prints with its stage prefix, and problems are collected rather than thrown until step 10.
+`build` and `check` run one pipeline. It has nine steps; `check` adds the contrast gate, the link crawl and the CI summary. Every step prints with its stage prefix, and problems are collected rather than thrown until the end of the Jx step.
+
+The steps that work on one project's documentation (stage, lint, nav) run once per project. The others run once for the whole site: one Jx build, one post-build, one set of assertions, one published folder.
 
 ## Why a generated project root
 
-Jx 5.0.0 has no project-level composition. It reads `pages/`, `components/*.json` (flat), `public/` and the layout chain only from the project root, a nested layout is resolved against that root, components cannot be registered from a package, and `project.json` has no `extends`. So the package assembles a plain Jx project root from real file copies and runs the released Jx compiler on it with `jx build <root>`. That uses only documented Jx surfaces: no Jx extension, no hook, no mutation of Jx internals.
+Jx has no project-level composition. It reads `pages/`, `components/*.json` (flat), `public/` and the layout chain only from the project root, and `project.json` has no `extends`. So the build assembles a plain Jx project root in `.site-docs/site/` from real file copies and runs the released Jx compiler on it with `jx build <root>`. That uses only documented Jx surfaces: no Jx extension, no hook, no mutation of Jx internals.
 
-Jx also ignores what it does not understand and still exits 0: an unknown key, an unregistered component (an empty custom element is emitted). The pipeline therefore asserts the output positively (step 12).
+Jx also ignores what it does not understand and still exits 0: an unknown key, an unregistered component (an empty custom element is emitted). The pipeline therefore asserts the output positively (step 8).
 
 ## The steps
 
-| Step | Stage        | What happens                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    |              | Environment gate: Node 22.19.0 or newer, and the workflow contract. Exit 3 otherwise.                                                                                                                                                                                                                                                                                                                                                                                     |
-| 1    | `preflight:` | Find the site folder; read and validate the config (all problems at once, exit 1); resolve the repository root, the docs folder (it must be inside the repository), the branch and the strictness.                                                                                                                                                                                                                                                                        |
-| 2    | `preflight:` | The docs home exists, with the `cp README.md docs/README.md` hint; the slug against the bundled catalog; a warning for starter leftovers in the site folder.                                                                                                                                                                                                                                                                                                              |
-| 3    |              | Acquire `<site>/.docusystem/lock`. A dead pid is replaced; a live one is exit 3 naming it. Released at the end.                                                                                                                                                                                                                                                                                                                                                           |
-| 4    | `assemble:`  | Recreate `<site>/.docusystem/site` empty. Copy the package's `site/` into it, overlay the shell's `overrides/` and `public/`, generate `project.json`, the resolved config and `public/CNAME`, write the catalog snapshot, link the four Jx packages into `node_modules/@jxsuite/`, write `manifest.json`.                                                                                                                                                                |
-| 5    | `stage:`     | Copy `docs/` to `<root>/.generated/docs` (dotfiles skipped, symlink policy applied). Rewrite links and images (Markdown and raw HTML: `<a href>`, `<img src>`) that point at repository files outside docs to GitHub URLs, and root-relative links to docs pages to page-relative ones. Move a leading comment below the front matter. Write every `${` inert.                                                                                                            |
-| 6    | `lint:`      | Markdown checks over the original `docs/` with `file:line`: reference-style links, footnotes, task lists, `${...}` in an address or a tag, unbalanced `<details>`, inline `<a href>`, raw HTML, links, images and directives that run code or load another page (`unsafe-html`, `unsafe-url`, `unsafe-directive`: errors) and the other rules. Errors are collected.                                                                                                      |
-| 7    | `nav:`       | Compute the sidebar, previous and next links and the landing cards from the staged copy and write `<root>/.generated/nav.json`.                                                                                                                                                                                                                                                                                                                                           |
-| 8    |              | `docusystem jx` stops here and runs the pinned Jx with your arguments.                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 9    | `jx:`        | Print the exact command, then run `<node> <compiler>/bin/jx.js build <root>` with the root as the working directory. Stdout and stderr are captured, echoed and written to `.docusystem/jx.log`. A non-zero exit is a failure, reported together with the lint errors.                                                                                                                                                                                                    |
-| 10   |              | Classify. Problems are the lint errors, Jx output lines matching `^(Content\b                                                                                                                                                                                                                                                                                                                                                                                             | Warning: | Error)`and skipped symbolic links. Parse`Done: N routes`: it must be at least the page count plus the static pages. Strict: print everything once and exit 1 with nothing published. Lenient: print them as warnings and continue. |
-| 11   | `postbuild:` | On `<root>/dist`: tidy whitespace, escape `<title>`, set canonical and `og:url` with a trailing slash, move `404/index.html` to `404.html`, delete the per-page `index.md` copies, write the `${` of step 5 back as text, repair repository links in raw HTML, rewrite `sitemap.xml`, fix search-index titles, put a Content-Security-Policy meta first in the head of every page, and warn (never fatally) about code fences in languages the highlighter does not know. |
-| 12   | `assert:`    | Positive assertions on the result, each printed `ok` or `FAIL`. A failed assertion is fatal in every mode. See below.                                                                                                                                                                                                                                                                                                                                                     |
-| 13   |              | Publish: copy `<root>/dist` to a temporary folder beside `<site>/dist`, remove the old `<site>/dist` and rename the new one into place. Only after steps 10 and 12 passed (strict) or ran (lenient).                                                                                                                                                                                                                                                                      |
-| 14   |              | Print `build: N page(s) written to <site>/dist`, a one-line list of overrides and the manual `jx` command. Release the lock.                                                                                                                                                                                                                                                                                                                                              |
-| 15   | `contrast:`  | (`check`) Resolve the effective tokens and the search highlight; run the WCAG pairs; any pair below its minimum fails.                                                                                                                                                                                                                                                                                                                                                    |
-| 16   | `links:`     | (`check`) Crawl `<site>/dist` with the nav data: every link, anchor, asset, search result and sidebar entry must resolve.                                                                                                                                                                                                                                                                                                                                                 |
-| 17   |              | (`check --ci`) Write the job summary and the step outputs; print `check: all steps passed` or `check: FAILED`.                                                                                                                                                                                                                                                                                                                                                            |
+| Step         | Stage        | Per     | What happens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------ | ------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1            | `registry:`  | site    | Read and validate `projects.json` (all problems at once). Choose the projects (`--only`). Check that every project's Markdown folder is on disk, naming the submodule command when it is not.                                                                                                                                                                                                                                                                                                                                                                                    |
+| 2            | `assemble:`  | site    | Recreate `.site-docs/site` empty. Copy the shell (`site/`) into it, write `project.json` (the base with the site's name, URL and link strictness), the project catalog, `public/CNAME`, link the four Jx packages, and write each project's two pages, `pages/<path>/index.json` and `pages/<path>/[...path].json`, from the two templates in `site/templates/`.                                                                                                                                                                                                                 |
+| 3            | `stage:`     | project | Copy the project's Markdown folder to `.generated/docs/<path>/docs` (dotfiles skipped, the symbolic-link policy applied). Rewrite links and images (Markdown and raw HTML) that point at repository files outside the Markdown folder to GitHub URLs, and root-relative links to docs pages to page-relative ones. Move a leading comment below the front matter. Write every `${` inert.                                                                                                                                                                                        |
+| 4            | `lint:`      | project | Markdown checks over the original folder with `file:line`: reference-style links, footnotes, task lists, `${...}` in an address or a tag, unbalanced `<details>`, inline `<a href>`, and raw HTML, links, images and directives that run code or load another page. Errors are collected.                                                                                                                                                                                                                                                                                        |
+| 5            | `nav:`       | project | Compute the sidebar, previous and next links and the landing cards from the staged copy, write `.generated/nav/<path>.json`, and write the project's facts to `.generated/config/<path>.json`.                                                                                                                                                                                                                                                                                                                                                                                   |
+| 6            | `jx:`        | site    | Print the exact command, then run `<node> <compiler>/bin/jx.js build <root>` with the root as the working directory. Stdout and stderr are captured, echoed and written to `.site-docs/jx.log`. A non-zero exit is a failure. Then classify: the problems are the lint errors, Jx output lines matching `^(Content\b\|Warning:\|Error)` and skipped symbolic links; `Done: N routes` must be at least the pages the sidebars promise plus the shell's static pages. Strict: print everything once and stop with nothing published. Lenient: print them as warnings and continue. |
+| 7            | `postbuild:` | site    | On `.site-docs/site/dist`: tidy whitespace, escape `<title>`, set canonical and `og:url` with a trailing slash, move `404/index.html` to `404.html`, delete the per-page `index.md` copies, write the `${` of step 3 back as text, repair repository links in raw HTML (each page's links go to the repository and branch of its own project), rewrite `sitemap.xml`, fix search-index titles, put a Content-Security-Policy meta first in the head of every page, and warn (never fatally) about code fences in languages the highlighter does not know.                        |
+| 8            | `assert:`    | site    | Positive assertions on the result, each printed `ok` or `FAIL`. A failed assertion is fatal in every mode. See below.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 9            |              | site    | Publish: copy `.site-docs/site/dist` to a temporary folder beside `./dist`, remove the old `./dist` and rename the new one into place. Only after steps 6 and 8 passed (strict) or ran (lenient). Print `build: N page(s) of M project(s) written to <dist>`.                                                                                                                                                                                                                                                                                                                    |
+| `check`      | `contrast:`  | site    | Resolve the effective tokens and the search highlight and run the WCAG pairs; any pair below its minimum fails.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `check`      | `links:`     | site    | Crawl `./dist` with every project's nav data: every link, anchor, asset, search result and sidebar entry must resolve, every sidebar page must have been built, and every built page below a project's documentation prefix must be in its sidebar.                                                                                                                                                                                                                                                                                                                              |
+| `check --ci` |              | site    | Write the job summary and the step outputs; print `check: all steps passed` or `check: FAILED`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
-A failed strict build leaves the previous `<site>/dist` untouched.
+A failed strict build leaves the previous `./dist` untouched.
 
-Jx evaluates every string that holds `${` as JavaScript, and its parser makes inert only the text of a page, not an address, a URL, a raw HTML attribute, a directive or the language of a fence. Step 5 therefore writes every `${` of a page with a zero-width space between `$` and `{`, in code and front matter as well and in every spelling that Markdown, HTML or YAML decodes to it, and step 7 does the same for the sidebar data. Step 11 writes the marker back as `&#36;{` in every text node, so prose and code read as written; an attribute value keeps it. See [the trust model](workflows.md#trust-model).
+Jx evaluates every string that holds `${` as JavaScript, and its parser makes inert only the text of a page, not an address, a URL, a raw HTML attribute, a directive or the language of a fence. Step 3 therefore writes every `${` of a page with a zero-width space between `$` and `{`, in code and front matter as well and in every spelling that Markdown, HTML or YAML decodes to it, and step 5 does the same for the sidebar data. Step 7 writes the marker back as `&#36;{` in every text node, so prose and code read as written; an attribute value keeps it. See [the trust model](workflows.md#trust-model).
 
-### The assertions of step 12
+### The assertions of step 8
 
 - Every component file of the root was emitted as `components/<name>.js`.
 - No registered custom element is left empty (not rendered).
-- No page has an empty link: an `<a href>` with no text, image or `aria-label`. A raw HTML anchor in the Markdown is the usual cause, and step 6 reports it as a lint error with its file and line.
+- No page has an empty link: an `<a href>` with no text, image or `aria-label`. A raw HTML anchor in the Markdown is the usual cause, and step 4 reports it as a lint error with its file and line.
 - Exactly one `<h1>` per page.
 - The `<title>` of every page is text: the head has one `<title>` and one `</title>`. Jx writes the title text as it is, so a title that holds `</title>` would end the element and leave what follows it as live HTML in the head.
 - No unevaluated template text in the output: a dollar sign, an opening brace and the word `state`, which would mean a page template was not evaluated.
 - `CNAME` equals `domain`.
 - At least one `fonts/*.woff2`; `@font-face` URLs are local; no third-party font host appears.
 - `favicon.svg`, `favicon.ico` and `.nojekyll` exist.
-- `search-index.json` has an entry for every docs page.
-- `sitemap.xml` is present and on the configured domain.
+- `search-index.json` has an entry for every documentation page of every project.
+- `sitemap.xml` is present and on the registry's domain.
 - `404.html` is present and there is no `/404/` folder.
 - There are no `*.md` copies.
-- The project switcher is pre-rendered from the catalog.
-- The route count of step 10.
+- The project menu is pre-rendered from the catalog.
+- The route count of step 6.
 - No page holds a script, an event handler, a `javascript:`, `data:` or other unsafe address, or an embedded page (`iframe`, `object`, `embed`, `form`, `base`), and the page content (`docs-prose`) holds no `script`, `style`, `link` or `meta` and no `style` attribute. This reads what Jx wrote, so it also catches what raw HTML, links, images and `:name{...}` directives made.
-- Every file Jx published from the Markdown folder (`content/`) is not active: no `.html`, `.js`, `.xsl` or similar, no SVG with scripts or handlers, no XML that says it is XHTML or SVG.
+- Every file Jx published from the Markdown (`content/`) is not active: no `.html`, `.js`, `.xsl` or similar, no SVG with scripts or handlers, no XML that says it is XHTML or SVG.
 - Every page with a head carries a Content-Security-Policy meta before its first script, whose `script-src` is open to nothing but the site and names each inline script by its hash.
 
 ### The Content-Security-Policy
 
-Documentation is other people's text on a domain that is same-site with the client portal, so the pages say what they may do. Step 11 puts this meta first in the head of every page (after `<meta charset>`), with the hashes of the page's inline scripts filled in:
+Documentation is other people's text on a domain that is same-site with the client portal, so the pages say what they may do. Step 7 puts this meta first in the head of every page (after `<meta charset>`), with the hashes of the page's inline scripts filled in:
 
 ```text
 default-src 'self'; script-src 'self' 'sha256-...'; style-src 'self' 'unsafe-inline'; img-src 'self' https:;
-font-src 'self'; connect-src 'self' https://avunu.net; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'
+font-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'
 ```
 
-A browser then refuses an inline event handler, a `javascript:` address, an inline script the build did not write and any script from another origin; it embeds nothing, cannot be sent to another `<base>` and submits no form. Styles keep `'unsafe-inline'` because the pages carry `<style>` blocks. Images may come from any https site, so that a page can show the badge of its repository. `avunu.net` is the project switcher's live catalog. A policy that a project's own layout adds is enforced too, and can only narrow this one. A `jx` fragment that adds a script from another origin to `$head` is blocked by it: that is the cost of the unsupported rung, and the reason to ask for the change in the package instead. `docusystem dev` serves the same pages, so its reload script is a file (`/__reload.js`) and not an inline script.
+A browser then refuses an inline event handler, a `javascript:` address, an inline script the build did not write and any script from another origin; it embeds nothing, cannot be sent to another `<base>` and submits no form. Styles keep `'unsafe-inline'` because the pages carry `<style>` blocks. Images may come from any https site, so that a page can show the badge of its repository. `connect-src` allows `https://avunu.net` for the project menu, which is built into every page at build time and makes no request of its own. A policy that the shell's own layout adds is enforced too, and can only narrow this one.
 
-## The generated project root
+## The work folder
 
 ```text
-<site>/.docusystem/                git-ignored; contains its own .gitignore with the single line *
-  lock                             pid file
-  manifest.json                    written by assemble
+.site-docs/                        git-ignored; contains its own .gitignore with the single line *
   jx.log                           raw stdout and stderr of the last Jx run
-  serve/                           dev only: the copy of dist the dev server answers from
   site/                            THE JX PROJECT ROOT (recreated empty on every run)
-    project.json                   generated from the package's project.base.json
-    docusystem.config.json         the resolved config
-    components/ layouts/ pages/    package copies, then overrides on top
-    public/                        package public/, then <site>/public/, then CNAME
-    data/projects.snapshot.json    the bundled catalog
-    .generated/docs/               the staged Markdown
-    .generated/nav.json            sidebar, previous and next, landing cards
+    project.json                   generated from site/project.base.json
+    components/ layouts/ pages/    copies of the shell, then pages/<path>/ for each project
+    templates/                     the two page templates of a project (not routes)
+    public/                        the shell's public files and CNAME
+    data/projects.snapshot.json    the project catalog: the bundled snapshot with the registry on top
+    .generated/docs/<path>/docs/   each project's staged Markdown
+    .generated/nav/<path>.json     each project's sidebar, previous and next, landing cards
+    .generated/config/<path>.json  each project's facts: name, repo, branch, docs folder, addresses
     node_modules/@jxsuite/         links to the installed compiler, parser, runtime and search
     dist/                          the Jx build output, post-processed in place
-<site>/dist/                       the published copy; the only path CI uploads
+dist/                              the published copy; the only folder CI uploads
 ```
 
-The layouts and pages read the resolved config through the content type `config`, the sidebar through `nav` and the project switcher through `projects`; the `docs` content type reads `./.generated/docs`.
+The layouts and pages read a project's facts through the content type `config`, its sidebar through `nav`, the project menu through `projects`, and its Markdown through `docs`. A page names its project's entries in its own state (`config` and `nav` entries with the project's path as id), which overrides the layout's defaults for the site's own entries. That is why each project gets its own two page files rather than one shared template: Jx resolves a content entry's id when it builds, and cannot take it from a variable.
 
-### The manifest
+## The project catalog
 
-`.docusystem/manifest.json` records what the build did:
-
-```json
-{
-  "docusystem": "0.1.0",
-  "runtime": "node 24.21.0",
-  "jx": {
-    "@jxsuite/compiler": "5.0.0",
-    "@jxsuite/parser": "2.0.0",
-    "@jxsuite/runtime": "4.0.3",
-    "@jxsuite/search": "0.4.0"
-  },
-  "files": {
-    "components/docs-footer.json": "override",
-    "pages/index.json": "package",
-    "project.json": "generated",
-    "public/CNAME": "generated"
-  },
-  "shadowed": ["components/docs-footer.json"],
-  "added": ["pages/about.json"],
-  "catalog": "bundled",
-  "strict": true
-}
-```
-
-`files` lists every file of the root except `node_modules/`, `dist/` and `.generated/docs/`, sorted by path, with its origin: `package`, `override` or `generated`. `catalog` is `bundled`, or `live` with `--refresh-catalog`. The versions in the example are an illustration of the shape; the file records the ones installed.
-
-## The catalog
-
-The project switcher is built from a catalog bundled in the package, so the build needs no network and the output does not depend on avunu.net at build time. A weekly job in this repository proposes a refresh as a patch release. In the browser the page swaps in the live `https://avunu.net/projects.json` when idle; while avunu.net does not serve it, the fetch fails quietly and the bundled list stays (an entry without a `docs` address then links to its page on avunu.net, which exists only once avunu.net has relaunched: see [the order of launch](../guide/publishing.md#what-a-maintainer-sets-once)). `--refresh-catalog` makes a build fetch the live one (a 5-second timeout) and accept it only if it passes the version-1 contract; otherwise the build keeps the bundled one and prints a `catalog:` warning. The contract bounds the text as well as the shape: a slug is a [config](configuration.md) slug, and no string in the document may hold `${`, `<`, `>` or a control character, because the compiler evaluates a `${...}` in what a page renders and a catalog that held one would run code in every site's build.
-
-## The dev server
-
-`docusystem dev` runs steps 1 to 14 leniently once. Then it serves `<site>/.docusystem/serve`, an atomically swapped copy of `<site>/dist`, on `127.0.0.1:<port>` with GitHub Pages semantics:
-
-- A directory without a trailing slash answers 301.
-- A missing path answers 404 with `404.html`.
-- Path traversal is refused.
-- An event stream at `/__reload` and a reload script injected before `</body>` of HTML pages reload the browser.
-
-It watches the docs folder, `overrides/`, `public/` and the config file. Changes are debounced by 150 ms and rebuilds are serialized: one more only if a change arrived during a build. The lock is held only during a build. A failed rebuild keeps serving the last good copy and prints the problems, and the browser reloads only after a successful build. It binds only to loopback.
+The project menu is built from a catalog that is part of the build: a snapshot of avunu.net's project catalog bundled in `site/data/`, with every registered project's `docs` address set from the registry. The build needs no network and the output does not depend on avunu.net at build time. A project the snapshot does not know is added from its registry entry. Entries without a `docs` address link to their page on avunu.net.
 
 ## What CI runs
 
-Pull request (`docs.yml` calling `docs-build.yml`, token `contents: read`): check out without credentials; require `package-lock.json` and refuse `bun.lock`; Node 24 without a package cache; `npm ci --ignore-scripts`; `npm audit signatures` and the provenance assertion; `CI=true ./node_modules/.bin/docusystem check --ci`; upload `<site>/dist` as the 7-day artifact `docs-site` for review; on failure upload the debug artifact.
-
-Push to the default branch or a manual run (`docs-publish.yml`): the same build job, with the Pages artifact when `DOCS_SITE_ENABLED` is `true`, then, only when it is, `docs-deploy.yml`. See [Workflows](workflows.md).
+See [workflows](workflows.md): `ci.yml` runs this pipeline for pull requests that can change the site, and `deploy.yml` runs it on the default branch and publishes the result.

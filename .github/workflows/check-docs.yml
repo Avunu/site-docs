@@ -1,0 +1,133 @@
+name: Check docs
+
+# The reusable workflow every project repository calls from its own .github/workflows/docs.yml to check its
+# documentation on its own pull requests, before it is merged and later bumped into the workspace:
+#
+#   on:
+#     pull_request:
+#       paths: [docs/**, .github/workflows/docs.yml]
+#   permissions: {}
+#   jobs:
+#     docs:
+#       permissions:
+#         contents: read
+#       uses: <this repository>/.github/workflows/check-docs.yml@<40-character commit> # <version or date>
+#       with:
+#         path: frappe-nix # the `path` of the project in projects.json
+#         ref: <the same 40-character commit as in `uses:`>
+#
+# What it does: checks out this repository at the commit the caller passes as `ref` (the one it pinned
+# in `uses:`) with every project's submodule except the calling one, checks out the caller's pull
+# request into a folder of its own, then runs the workspace check for that one project with the caller's
+# checkout in place of its submodule:
+#
+#   node build/cli.js check --only <path> --source <path>=<the caller's checkout>
+#
+# So a project's pull request is judged exactly as the site will build it, links to the other projects
+# included. The project must already be in projects.json.
+#
+# The token is read-only and there are no secrets, nothing is published and the caller's code never runs:
+# its checkout is read as documents by this repository's tool, nothing in it is installed or executed.
+# Triggers belong to the caller and must be pull_request, push or workflow_dispatch, never
+# pull_request_target or workflow_run.
+#
+# Which repository supplies the tool is the one literal of this workflow, WORKSPACE_REPOSITORY below:
+# inside a called workflow `github.repository` is the CALLER's repository, so this repository's own name
+# cannot be read from the context. Change it when the repository is renamed (the old name keeps working
+# through GitHub's redirect until another repository takes it). Which commit: the `ref` input, default
+# `main`; a caller passes the commit it pinned in `uses:`, so the tool and this workflow are one revision.
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: The path of the calling project in projects.json (lowercase letters, digits and hyphens).
+        required: true
+        type: string
+      ref:
+        description: Commit, branch or tag of the workspace repository to build with. Callers pass the commit they pinned in `uses`.
+        required: false
+        type: string
+        default: main
+
+permissions: {}
+
+env:
+  WORKSPACE_REPOSITORY: Avunu/site-docs # the workspace repository: see the comment at the top
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read # checkout
+    env:
+      PROJECT: ${{ inputs.path }}
+      TOOL_REF: ${{ inputs.ref }}
+    steps:
+      - name: Check the inputs
+        run: |
+          if ! [[ "$PROJECT" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+            echo "::error title=path::must be the project's path in projects.json, such as frappe-nix (got '$PROJECT')"
+            exit 1
+          fi
+          if ! [[ "$TOOL_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]; then
+            echo "::error title=ref::must be a commit, branch or tag name (got '$TOOL_REF')"
+            exit 1
+          fi
+
+      # This repository, at the caller's pin, without its submodules: the calling project's is not wanted.
+      - name: Check out the workspace
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.WORKSPACE_REPOSITORY }}
+          ref: ${{ inputs.ref }}
+          path: workspace
+          fetch-depth: 1
+          persist-credentials: false
+
+      # The pull request under test, where the caller's own `actions/checkout` would put it: its merge
+      # commit on a pull request. It is only ever read.
+      - name: Check out the calling project
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: project
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check that the project is registered
+        working-directory: workspace
+        run: |
+          if ! jq -e --arg path "$PROJECT" '.projects[] | select(.path == $path)' projects.json > /dev/null; then
+            echo "::error title=path::'$PROJECT' is not in projects.json of the documentation workspace: register the project there first"
+            exit 1
+          fi
+
+      # Every other project, shallow and over https alone. The list is the registry's, not .gitmodules.
+      - name: Fetch the other projects
+        working-directory: workspace
+        env:
+          GIT_ALLOW_PROTOCOL: https
+        run: |
+          jq -r --arg path "$PROJECT" '.projects[] | select(.local != true and .path != $path) | "projects/" + .path' projects.json \
+            | xargs -r git submodule update --init --depth 1 --
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install the locked dependencies
+        working-directory: workspace
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build the tool
+        working-directory: workspace
+        run: npm run build
+
+      - name: Check the documentation
+        working-directory: workspace
+        env:
+          CI: "true" # a document problem fails the build instead of being a warning
+        run: node build/cli.js check --only "$PROJECT" --source "$PROJECT=$GITHUB_WORKSPACE/project"

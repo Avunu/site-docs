@@ -1,21 +1,18 @@
 ---
 title: Guide
-description: How to add the documentation system to a repository, write for it, publish it, customize it and keep it current.
+description: How to write documentation for the site, add a project to it, preview a build and fix a failing check.
 order: 2
-updated: 2026-10-06
+updated: 2026-10-15
 tags: [guide, docs]
 ---
 
-The guide follows a project from the first command to the fiftieth release. Read it in order once; after that each page stands alone.
+The guide follows a project from its first page to its fiftieth release. Each page stands alone.
 
-| Page                                                                | Read it when                                                                     |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [Getting started](getting-started.md)                               | You are adding the site to a repository.                                         |
-| [Writing documentation](writing-docs.md)                            | You are writing or moving Markdown into `docs/`.                                 |
-| [Publishing](publishing.md)                                         | You are a maintainer turning the site on, or want to know what the workflows do. |
-| [Customizing](overrides.md)                                         | The defaults are not enough: tokens, static files, a replaced component.         |
-| [Upgrading](upgrading.md)                                           | A new release of the package is out.                                             |
-| [Troubleshooting](troubleshooting.md)                               | A command failed or a page looks wrong.                                          |
-| [Migrating from the earlier starter](migrating-from-the-starter.md) | The repository has a `docs-site/` copied from the starter.                       |
+| Page                                     | Read it when                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| [Writing documentation](writing-docs.md) | You are writing or moving Markdown into a project's `docs/` folder.       |
+| [Adding a project](adding-a-project.md)  | A repository should appear on the site, or stop appearing on it.          |
+| [Previewing](previewing.md)              | You want to see your pages as the site will build them, before you merge. |
+| [Troubleshooting](troubleshooting.md)    | A build or a check failed, or a page looks wrong.                         |
 
-The [reference](../reference/README.md) has the complete lists: every config key, command, option, exit code and check.
+The [reference](../reference/README.md) has the complete lists: every command, option, exit code, registry key and check.

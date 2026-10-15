@@ -6,12 +6,13 @@
     "perf": "error"
   },
   "ignorePatterns": [
+    "build",
     "dist",
     "node_modules",
-    "site",
-    "verify",
-    "examples",
-    ".docusystem",
+    "projects/**",
+    "site/**",
+    "verify/**",
+    ".site-docs",
     "test/fixtures",
     "test/**/fixtures"
   ],
