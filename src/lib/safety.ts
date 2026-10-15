@@ -56,7 +56,7 @@ export function safetyAssertions(
     hazardous.length === 0
       ? pass("no page holds a script, an event handler, a javascript: address or an embedded page")
       : fail(
-          `pages hold something that runs code or embeds another page: ${listOf(hazardous, SHOWN)}. It comes from raw HTML, a link, an image or a :directive in the Markdown, which may only use text, table and image elements and http, https, mailto, tel and relative addresses (docusystem lint names the file and line)`,
+          `pages hold something that runs code or embeds another page: ${listOf(hazardous, SHOWN)}. It comes from raw HTML, a link, an image or a :directive in the Markdown, which may only use text, table and image elements and http, https, mailto, tel and relative addresses (the lint output names the file and line)`,
         ),
   );
 

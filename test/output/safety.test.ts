@@ -57,7 +57,7 @@ describe("safetyAssertions", () => {
     expect(runs!.ok).toBe(false);
     expect(runs!.message).toContain('/docs/a/ (<img onerror="alert(1)">)');
     expect(runs!.message).toContain('/docs/b/ (<a href="javascript:alert(1)">, <iframe>)');
-    expect(runs!.message).toMatch(/raw HTML, a link, an image or a :directive.*docusystem lint/);
+    expect(runs!.message).toMatch(/raw HTML, a link, an image or a :directive.*the lint output/);
     expect(files!.ok).toBe(true);
     expect(policy!.ok).toBe(true);
   });

@@ -1,9 +1,9 @@
-// Reading the package's site/ folder (the Jx project files WP7 owns) from the tests of test/site.
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+// Reading the repository's site/ folder (the Jx project files of the shell) from the tests of test/site.
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "../../support/index.js";
 
-/** The package's `site/` folder: what `assemble` copies into the generated Jx root. */
+/** The repository's `site/` folder: what the workspace build copies into the generated Jx root. */
 export const SITE: string = join(REPO_ROOT, "site");
 
 /** `test/site/fixtures`: files the site tests read (not formatted, not tests). */
@@ -39,28 +39,14 @@ export function jsonFiles(folder: string): string[] {
     .map((name) => `${folder}/${name}`);
 }
 
-/**
- * Every file under `site/` (dot files included), `/`-separated and sorted, except what other work
- * packages own (`data/`, the bundled catalog of WP1).
- */
-export function siteFiles(): string[] {
-  const out: string[] = [];
-  const visit = (dir: string, prefix: string): void => {
-    for (const name of readdirSync(dir)) {
-      const path = join(dir, name);
-      const rel = `${prefix}${name}`;
-      if (statSync(path).isDirectory()) {
-        if (rel !== "data") visit(path, `${rel}/`);
-      } else out.push(rel);
-    }
-  };
-  visit(SITE, "");
-  return out.sort();
-}
-
 export const COMPONENTS: string[] = jsonFiles("components");
 export const LAYOUTS: string[] = jsonFiles("layouts");
+/** The site's own pages (`/` and the not-found page). */
 export const PAGES: string[] = jsonFiles("pages");
+/** The two pages every project gets, with `@@PATH@@` where its path goes. */
+export const TEMPLATES: string[] = jsonFiles("templates");
+/** Everything that is a page of the site, written or to be instantiated. */
+export const PAGE_DOCUMENTS: string[] = [...PAGES, ...TEMPLATES];
 
 /** The generated project, as the tests of the base project see it. */
 export const PROJECT: Json = readJson("project.base.json");

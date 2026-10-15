@@ -4,14 +4,24 @@
 // invisible to a scan of the closed page, so the states are scanned too. Exits 1 on any serious or
 // critical violation; moderate and minor ones are listed.
 //
-//   bun axe.ts <dist> [route ...]        (<dist> is <site>/.docusystem/site/dist)
+//   bun axe.ts <dist> [route ...]        (<dist> is <site>/.site-docs/site/dist)
 //
-// The overlays are opened on the documentation pages among the routes (the first two), not on every
-// page: they are the same components everywhere.
+// The overlays are opened on two documentation pages of one project (its home, and the page with the most
+// headings), not on every page: they are the same components everywhere.
 import { join, resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "playwright-core";
-import { SCHEMES, WIDTHS, launch, routesOf, serve, snapshotOf, stubCatalog } from "./lib.ts";
+import {
+  SCHEMES,
+  WIDTHS,
+  defaultDocsRoute,
+  docsHome,
+  isDocsRoute,
+  launch,
+  routesOf,
+  serve,
+  stubNetwork,
+} from "./lib.ts";
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const [distArg, ...routeArgs] = args;
@@ -23,7 +33,6 @@ const dist = resolve(distArg);
 const routes = routeArgs.length > 0 ? routeArgs : routesOf(dist);
 const server = serve(dist);
 const browser = await launch();
-const snapshot = snapshotOf(dist);
 
 /** A word that is in the search index, so the palette has results. */
 async function queryWord(): Promise<string> {
@@ -40,7 +49,9 @@ async function queryWord(): Promise<string> {
   }
 }
 const query = await queryWord();
-const overlayRoutes = routes.filter((r) => r.startsWith("/docs/")).slice(0, 2);
+const preferred = [docsHome(dist), defaultDocsRoute(dist)].filter((r) => routes.includes(r));
+const overlayRoutes =
+  preferred.length > 0 ? preferred : routes.filter((r) => isDocsRoute(r)).slice(0, 2);
 
 let blocking = 0;
 let other = 0;
@@ -128,7 +139,7 @@ for (const scheme of SCHEMES) {
       viewport: { width, height: 900 },
       colorScheme: scheme,
     });
-    await stubCatalog(context, snapshot);
+    await stubNetwork(context);
     for (const route of routes) {
       const page = await context.newPage();
       await page.goto(`http://localhost:${server.port}${route}`, { waitUntil: "networkidle" });

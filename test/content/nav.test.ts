@@ -280,3 +280,52 @@ test("no string of the sidebar data holds `${`: a title, a label and a descripti
   expect(text).toContain(`${INERT}4}`);
   expect(text).toContain(`sec ${INERT}5}`);
 });
+
+test("a prefix puts every address, link and section of a project below it", () => {
+  const files = readDocs(
+    makeTree({
+      "README.md": "# Home\n",
+      "intro.md": "# Intro\n",
+      "guides/README.md": "# Guides\n",
+      "guides/install.md": "# Install\n",
+    }),
+  );
+  const { nav: n } = buildNav(files, "Demo", "docs", "/demo/docs");
+  expect(Object.keys(n.pages).sort()).toEqual([
+    "/demo/docs/",
+    "/demo/docs/guides/",
+    "/demo/docs/guides/install/",
+    "/demo/docs/intro/",
+  ]);
+  const urls = JSON.stringify(n);
+  expect(urls).not.toContain('"/docs/');
+  expect(n.home.url).toBe("/demo/docs/");
+  expect(n.pages["/demo/docs/intro/"]?.prev?.url).toBe("/demo/docs/");
+  expect(n.flat.every((f) => f.url.startsWith("/demo/docs/"))).toBe(true);
+});
+
+test("two projects' navigations never share an address", () => {
+  const files = readDocs(makeTree({ "README.md": "# Home\n", "a.md": "# A\n" }));
+  const one = Object.keys(buildNav(files, "One", "docs", "/one/docs").nav.pages);
+  const two = Object.keys(buildNav(files, "Two", "docs", "/two/docs").nav.pages);
+  expect(one.filter((url) => two.includes(url))).toEqual([]);
+});
+
+test("the missing-home message names the prefix the home would have", () => {
+  const files = readDocs(makeTree({ "a.md": "# A\n" }));
+  expect(() => buildNav(files, "x", "docs", "/demo/docs")).toThrow(
+    "docs/README.md is missing: it is the documentation home (/demo/docs/)",
+  );
+});
+
+test("two files with one address warn under a prefix too", () => {
+  const { warnings } = buildNav(
+    readDocs(
+      makeTree({ "README.md": "# H\n", "Install Steps.md": "# 1\n", "install-steps.md": "# 2\n" }),
+    ),
+    "x",
+    "docs",
+    "/demo/docs",
+  );
+  expect(warnings).toHaveLength(1);
+});

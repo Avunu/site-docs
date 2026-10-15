@@ -1,34 +1,19 @@
-// The documentation fixture of the site tests: test/site/fixtures/docs, the navigation recorded for
-// it (nav.json) and what each file of it must become. The table is the contract between three
-// parties that each compute it on their own: the `docs` content type of project.base.json (Jx),
-// the helpers of docs.ts (WP3) and the sidebar of nav.ts (WP3).
+// The documentation fixture of the site tests: test/site/fixtures/docs, and what each file of it must
+// become. The table is the contract between three parties that each compute it on their own: the
+// `docs` content type of project.base.json (Jx), the helpers of docs.ts and the sidebar of nav.ts.
+// Routes are those of one project's documentation, below its prefix: `/docs/guides/` is
+// `/example/docs/guides/` in the project `example`.
 import { join } from "node:path";
 import { SITE_FIXTURES } from "./site.js";
 
-/** The folder that is staged as the documentation. */
+/** The folder that stands in for a project's `docs/`. */
 export const DOCS_FIXTURE: string = join(SITE_FIXTURES, "docs");
-
-/** The sidebar data that nav.ts produced for DOCS_FIXTURE (see fixtures/README.md). */
-export const NAV_FIXTURE: string = join(SITE_FIXTURES, "nav.json");
-
-/** The project the fixture site documents. */
-export const FIXTURE_CONFIG = {
-  name: "Example Project",
-  tagline: "A fixture that stands in for a project.",
-  slug: "example",
-  platform: "general",
-  repo: "https://github.com/Avunu/example",
-  domain: "example.avunu.net",
-  license: "MIT",
-  branch: "main",
-  docsPath: "docs",
-} as const;
 
 export type DocFixture =
   | { file: string; route: string }
   | { file: string; route?: undefined; left: string };
 
-/** Every file of DOCS_FIXTURE: the route it is published at, or why it is left out. */
+/** Every file of DOCS_FIXTURE: the route it is published at (below the prefix), or why it is left out. */
 export const DOC_FIXTURES: readonly DocFixture[] = [
   { file: "README.md", route: "/docs/" },
   { file: "faq/general.md", route: "/docs/faq/general/" },
@@ -47,5 +32,8 @@ export const DOC_FIXTURES: readonly DocFixture[] = [
   { file: "unpublished.md", left: "publish: false" },
 ];
 
-/** The routes of the documentation, sorted. */
+/** The routes of one project's documentation, below its prefix, sorted. */
 export const DOC_ROUTES: string[] = DOC_FIXTURES.flatMap((f) => (f.route ? [f.route] : [])).sort();
+
+/** The routes of the documentation of the project at `path`: `/<path>/docs/...`. */
+export const routesOf = (path: string): string[] => DOC_ROUTES.map((route) => `/${path}${route}`);

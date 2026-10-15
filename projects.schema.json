@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.avunu.net/projects.schema.json",
+  "title": "projects.json",
+  "description": "The registry of the docs site: the projects whose docs/ folder is published, each one a git submodule at projects/<path>/. The build validates the same rules and says which entry is wrong; this schema is for the editor.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["domain", "name", "tagline", "org", "projects"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "domain": {
+      "description": "The host name the site is served from, without a scheme.",
+      "type": "string",
+      "pattern": "^(?=.{4,253}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$"
+    },
+    "name": {
+      "description": "The name of the whole site: the landing page and the 404 page.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^(?![\\s\\S]*\\$\\{)"
+    },
+    "tagline": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^(?![\\s\\S]*\\$\\{)"
+    },
+    "org": {
+      "description": "The organization on GitHub: the footer and the header of pages that belong to no project.",
+      "type": "string",
+      "pattern": "^https://github\\.com/[\\w.-]+$"
+    },
+    "projects": {
+      "description": "Sorted by path, so that a change shows as one line.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/project" }
+    }
+  },
+  "$defs": {
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "slug", "name", "tagline", "platform", "repo", "license", "branch"],
+      "properties": {
+        "path": {
+          "description": "The URL segment and the submodule folder projects/<path>. A configuration value, never derived from the repository name. Not one of assets, brand, components, data, fonts, images, public, 404.",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "not": {
+            "enum": ["assets", "brand", "components", "data", "fonts", "images", "public", "404"]
+          }
+        },
+        "slug": {
+          "description": "The key of the project in the avunu.net catalog (it may hold underscores).",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^(?![\\s\\S]*\\$\\{)"
+        },
+        "tagline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^(?![\\s\\S]*\\$\\{)"
+        },
+        "platform": { "enum": ["frappe", "odoo", "wordpress", "nixos", "general"] },
+        "repo": {
+          "description": "https://github.com/<owner>/<repository>: Edit this page, the header link, repository links in the Markdown.",
+          "type": "string",
+          "pattern": "^https://github\\.com/[\\w.-]+/[\\w.-]+$"
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^(?![\\s\\S]*\\$\\{)"
+        },
+        "branch": {
+          "description": "The default branch of the repository: edit links name it, and a project without a release follows it.",
+          "type": "string",
+          "pattern": "^(?!.*\\.\\.)(?!.*//)[A-Za-z0-9_][\\w./-]{0,99}$"
+        },
+        "docs": {
+          "description": "The Markdown folder inside the repository. Default docs.",
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$))"
+        },
+        "local": {
+          "description": "The project lives in this repository (its documentation is the workspace's own), not in a submodule.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

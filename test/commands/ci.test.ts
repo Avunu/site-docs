@@ -12,7 +12,7 @@ import {
 import { at, tempDir } from "../support/index.js";
 
 describe("annotation", () => {
-  // The byte-for-byte contract of section 4.1: `::error file=docs/x.md,line=N,title=<stage>::message`.
+  // The byte-for-byte contract: `::error file=docs/x.md,line=N,title=<stage>::message`.
   test("an error with a location and a stage", () => {
     expect(annotation("error", "Footnotes are not rendered.", "docs/guide/x.md", 15, "lint")).toBe(
       "::error file=docs/guide/x.md,line=15,title=lint::Footnotes are not rendered.",
@@ -102,12 +102,10 @@ describe("renderSummary", () => {
       { name: "Contrast", ok: true, detail: "148 color pair(s), 0 below the minimum" },
     ],
     versions: {
-      docusystem: "0.1.0",
+      docs: "0.0.0",
       runtime: "node 24.21.0",
       jx: { "@jxsuite/compiler": "5.0.0", "@jxsuite/parser": "2.0.0" },
     },
-    catalog: "bundled",
-    overrides: { shadowed: [], added: [] },
     problems: [],
   };
 
@@ -125,21 +123,18 @@ describe("renderSummary", () => {
         "",
         "#### Build",
         "",
-        "- @avunu/docusystem 0.1.0, node 24.21.0",
+        "- site-docs 0.0.0, node 24.21.0",
         "- @jxsuite/compiler 5.0.0, @jxsuite/parser 2.0.0",
-        "- project catalog: bundled",
-        "- overrides: none",
         "",
       ].join("\n"),
     );
   });
 
-  test("a failed run lists its problems, the essentials and the overrides", () => {
+  test("a failed run lists its problems and the essentials", () => {
     const text = renderSummary({
       ...base,
       passed: false,
       steps: [{ name: "Build", ok: false, detail: "1 error(s) | nothing was published" }],
-      overrides: { shadowed: ["components/docs-footer.json"], added: ["pages/about.json"] },
       problems: [
         { level: "error", message: "Footnotes are not rendered.", file: "docs/a.md", line: 3 },
         { level: "error", message: 'Content links: "a.md" links to "b.md"' },
@@ -152,25 +147,6 @@ describe("renderSummary", () => {
     expect(text).toContain("error: docs/a.md:3  Footnotes are not rendered.");
     expect(text).toContain('error: Content links: "a.md" links to "b.md"');
     expect(text).toContain("warning: docs/b.md:8  A task list.");
-    expect(text).toContain(
-      "- overrides: components/docs-footer.json (replaces the package's file), pages/about.json (added)",
-    );
-  });
-
-  test("the jx setting is an override: it is listed, alone or after files, and 'none' is not claimed", () => {
-    const jx = 'the "jx" setting of docusystem.config.json (merged into project.json)';
-    expect(renderSummary({ ...base, overrides: { shadowed: [], added: [], jx: true } })).toContain(
-      `- overrides: ${jx}\n`,
-    );
-    expect(
-      renderSummary({
-        ...base,
-        overrides: { shadowed: [], added: ["pages/about.json"], jx: true },
-      }),
-    ).toContain(`- overrides: pages/about.json (added), ${jx}\n`);
-    expect(renderSummary({ ...base, overrides: { shadowed: [], added: [], jx: false } })).toContain(
-      "- overrides: none\n",
-    );
   });
 
   test("at most twenty problems are listed, and the rest is counted", () => {
@@ -193,11 +169,9 @@ describe("renderSummary", () => {
   });
 
   test("the domain line and the build section are optional", () => {
-    const { domain: _domain, catalog: _catalog, overrides: _overrides, ...rest } = base;
+    const { domain: _domain, ...rest } = base;
     const text = renderSummary(rest);
     expect(text).not.toContain("published at");
-    expect(text).not.toContain("project catalog");
-    expect(text).not.toContain("overrides");
   });
 });
 

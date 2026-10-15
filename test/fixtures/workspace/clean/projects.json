@@ -1,0 +1,19 @@
+{
+  "domain": "docs.example.org",
+  "name": "Example documentation",
+  "tagline": "A small workspace that the real-Jx tests build: every page is clean.",
+  "org": "https://github.com/Example",
+  "projects": [
+    {
+      "path": "demo",
+      "slug": "demo",
+      "name": "Demo",
+      "tagline": "A small documentation tree that the real-Jx tests build: every page is clean.",
+      "platform": "general",
+      "repo": "https://github.com/Example/demo",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    }
+  ]
+}

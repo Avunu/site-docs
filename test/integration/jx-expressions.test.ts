@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { runCli } from "../support/index.js";
 import { restoreText } from "../../src/lib/inert.js";
-import { jxEnv, repoFrom, type Repo } from "./support.js";
+import { jxEnv, workspaceFrom, type Workspace } from "./support.js";
 
 const ZWSP = String.fromCodePoint(0x200b);
 
@@ -27,7 +27,7 @@ const literal = (n: number): string =>
 
 const FRONTMATTER = "---\ntitle: Vectors\n---\n\n";
 
-/** [vector, Markdown]: each in its own block of the page `docs/vectors.md`. */
+/** [vector, Markdown]: each in its own block of the page `projects/demo/docs/vectors.md`. */
 const VECTORS: Array<[number, string]> = [
   [1, `[a](https://example.com/${expr(1)})`],
   [2, `[a](<https://example.com/${expr(2)}>)`],
@@ -87,34 +87,32 @@ const CODE = [
   "See [the guide](guide/install.md) for `${PORT}`.",
 ];
 
-function cli(repo: Repo, argv: string[], env: NodeJS.ProcessEnv = {}) {
-  return runCli(argv, { cwd: repo.siteDir, env: jxEnv(env) });
+function cli(repo: Workspace, argv: string[], env: NodeJS.ProcessEnv = {}) {
+  return runCli(argv, { cwd: repo.dir, env: jxEnv(env) });
 }
 
 /** The marker files of every vector that ran, in the working directory of Jx. */
-const ran = (repo: Repo): string[] =>
-  existsSync(repo.paths.root)
-    ? readdirSync(repo.paths.root).filter((name) => name.startsWith("PWNED_"))
-    : [];
+const ran = (repo: Workspace): string[] =>
+  existsSync(repo.root) ? readdirSync(repo.root).filter((name) => name.startsWith("PWNED_")) : [];
 
-function write(repo: Repo, path: string, text: string): void {
+function write(repo: Workspace, path: string, text: string): void {
   const file = join(repo.dir, ...path.split("/"));
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, text);
 }
 
-function vectorsRepo(): Repo {
-  const repo = repoFrom("canary/clean");
+function vectorsRepo(): Workspace {
+  const repo = workspaceFrom("clean");
   write(
     repo,
-    "docs/vectors.md",
+    "projects/demo/docs/vectors.md",
     FRONTMATTER + VECTORS.map(([, markdown]) => markdown).join("\n\n") + "\n",
   );
-  write(repo, "docs/code.md", `---\ntitle: Code\n---\n\n${CODE.join("\n\n")}\n`);
+  write(repo, "projects/demo/docs/code.md", `---\ntitle: Code\n---\n\n${CODE.join("\n\n")}\n`);
   // a line of frontmatter that looks like the start of a fence must not hide the page that follows
   write(
     repo,
-    "docs/frontmatter.md",
+    "projects/demo/docs/frontmatter.md",
     `---\ntitle: Frontmatter\nnote: |\n  \`\`\`\n---\n\n[a](https://example.com/${expr(38)})\n`,
   );
   return repo;
@@ -134,7 +132,7 @@ describe("`${...}` in the Markdown of a page", () => {
     const all = `${stdout}\n${stderr}`;
     expect(ran(repo), all).toEqual([]);
     expect(code, all).toBe(1);
-    expect(existsSync(repo.paths.dist)).toBe(false);
+    expect(existsSync(repo.dist)).toBe(false);
     const text = readFileSync(join(repo.docsDir, "vectors.md"), "utf8").split("\n");
     const unreported = VECTORS.filter(([n]) => {
       const line = text.findIndex((l) => l.includes(`PWNED_${n}`)) + 1;
@@ -150,7 +148,7 @@ describe("`${...}` in the Markdown of a page", () => {
   test("the address is kept, with the expression written inert", async () => {
     const repo = vectorsRepo();
     expect((await cli(repo, ["build", "--lenient"])).code).toBe(0);
-    const page = readFileSync(join(repo.paths.dist, "docs", "vectors", "index.html"), "utf8");
+    const page = readFileSync(join(repo.dist, "demo", "docs", "vectors", "index.html"), "utf8");
     // href, src and attribute values hold the text with a zero-width space between `$` and `{`
     expect(page).toContain(`href="https://example.com/$${ZWSP}{process.getBuiltinModule(`);
     expect(page).toContain(`data-a="$${ZWSP}{process.getBuiltinModule(`);
@@ -161,9 +159,12 @@ describe("`${...}` in the Markdown of a page", () => {
     const repo = vectorsRepo();
     expect((await cli(repo, ["build", "--lenient"])).code).toBe(0);
     // staging wrote the marker, in code too
-    const staged = readFileSync(join(repo.paths.root, ".generated", "docs", "code.md"), "utf8");
+    const staged = readFileSync(
+      join(repo.root, ".generated", "docs", "demo", "docs", "code.md"),
+      "utf8",
+    );
     expect(staged).toContain(`\`$${ZWSP}{HOME}\``);
-    const page = readFileSync(join(repo.paths.dist, "docs", "code", "index.html"), "utf8");
+    const page = readFileSync(join(repo.dist, "demo", "docs", "code", "index.html"), "utf8");
     // the body of the page: the code as it was written (a highlighted block is split into tokens)
     const body = page.slice(page.indexOf("<docs-prose"), page.indexOf("</docs-prose>"));
     expect(body).toContain("<code>&#36;{HOME}</code>");
@@ -177,7 +178,7 @@ describe("`${...}` in the Markdown of a page", () => {
     expect(text).toContain("${PORT}");
     expect(body).not.toContain(ZWSP);
     // and the text of the vector page too
-    const vectors = readFileSync(join(repo.paths.dist, "docs", "vectors", "index.html"), "utf8");
+    const vectors = readFileSync(join(repo.dist, "demo", "docs", "vectors", "index.html"), "utf8");
     expect(restoreText(vectors)).toBe(vectors);
   });
 
@@ -185,7 +186,7 @@ describe("`${...}` in the Markdown of a page", () => {
     const repo = vectorsRepo();
     expect((await cli(repo, ["build", "--lenient"])).code).toBe(0);
     const clean = readFileSync(
-      join(repo.paths.dist, "docs", "guide", "install", "index.html"),
+      join(repo.dist, "demo", "docs", "guide", "install", "index.html"),
       "utf8",
     );
     expect(clean).not.toContain(ZWSP);
@@ -194,56 +195,68 @@ describe("`${...}` in the Markdown of a page", () => {
 
 describe("`${...}` where a title or a name becomes a label", () => {
   test("the title of a folder's README, a folder name and a heading with code in it do not run (the header's search links are props)", async () => {
-    const repo = repoFrom("canary/clean");
+    const repo = workspaceFrom("clean");
     write(
       repo,
-      "docs/by-title/README.md",
+      "projects/demo/docs/by-title/README.md",
       `---\ntitle: "Section ${expr(40)}"\n---\n\nA section whose title is an expression.\n`,
     );
     write(
       repo,
-      "docs/by-heading/README.md",
+      "projects/demo/docs/by-heading/README.md",
       `# Using \`${expr(41)}\`\n\nA section whose heading holds an expression in a code span.\n`,
     );
     write(
       repo,
-      `docs/by-name-${expr(42)}/page.md`,
+      `projects/demo/docs/by-name-${expr(42)}/page.md`,
       "---\ntitle: Page\n---\n\nA folder whose name is an expression.\n",
     );
     write(
       repo,
-      "docs/loose.md",
+      "projects/demo/docs/loose.md",
       `---\ntitle: Loose\nnav_title: "Label ${expr(43)}"\ndescription: "Text ${expr(44)}"\n---\n\nA page.\n`,
     );
     for (const argv of [["build", "--lenient"], ["build"]]) {
       const { stdout, stderr } = await cli(repo, argv, argv.length === 1 ? { CI: "true" } : {});
       expect(ran(repo), `${stdout}\n${stderr}`).toEqual([]);
     }
-    const page = readFileSync(join(repo.paths.dist, "docs", "loose", "index.html"), "utf8");
+    const page = readFileSync(join(repo.dist, "demo", "docs", "loose", "index.html"), "utf8");
     // the label is still there, as text
     expect(page).toContain("Label &#36;{process.getBuiltinModule");
   });
 });
 
-describe("`${...}` in the configuration", () => {
-  const config = (extra: Record<string, unknown>) => (repo: Repo) =>
-    write(
-      repo,
-      "docs-site/docusystem.config.json",
-      JSON.stringify({
-        ...JSON.parse(readFileSync(join(repo.siteDir, "docusystem.config.json"), "utf8")),
-        ...extra,
-      }),
-    );
+describe("`${...}` in the registry", () => {
+  const registry = (repo: Workspace, change: (registry: Record<string, any>) => void) => {
+    const file = join(repo.dir, "projects.json");
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as Record<string, any>;
+    change(parsed);
+    writeFileSync(file, JSON.stringify(parsed, null, 2));
+  };
 
   for (const key of ["name", "tagline", "license"]) {
-    test(`${key}: refused before anything is built`, async () => {
-      const repo = repoFrom("canary/clean");
-      config({ [key]: `Safe ${expr(50)}` })(repo);
+    test(`project ${key}: refused before anything is built`, async () => {
+      const repo = workspaceFrom("clean");
+      registry(repo, (r) => {
+        r.projects[0][key] = `Safe ${expr(50)}`;
+      });
       const { code, stdout, stderr } = await cli(repo, ["build", "--lenient"]);
       expect(code).toBe(1);
       expect(`${stdout}\n${stderr}`).toContain(`"${key}" must not contain \${...}`);
-      expect(existsSync(repo.paths.root)).toBe(false);
+      expect(existsSync(repo.root)).toBe(false);
+    });
+  }
+
+  for (const key of ["name", "tagline"]) {
+    test(`site ${key}: refused before anything is built`, async () => {
+      const repo = workspaceFrom("clean");
+      registry(repo, (r) => {
+        r[key] = `Safe ${expr(51)}`;
+      });
+      const { code, stdout, stderr } = await cli(repo, ["build", "--lenient"]);
+      expect(code).toBe(1);
+      expect(`${stdout}\n${stderr}`).toContain(`"${key}" must not contain \${...}`);
+      expect(existsSync(repo.root)).toBe(false);
     });
   }
 });

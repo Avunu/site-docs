@@ -2,13 +2,21 @@
 // files. buildNav is a pure function; writeNav (step 7 of the pipeline) reads the staged copy of the
 // Markdown and writes `.generated/nav.json`, which layouts/docs.json and pages/[...path].json read at
 // build time as the `nav` content type.
-import { descriptionOf, labelOf, orderOf, readDocsWithProblems, titleOf, urlFor } from "./docs.js";
+import {
+  DOCS_PREFIX,
+  descriptionOf,
+  labelOf,
+  orderOf,
+  readDocsWithProblems,
+  titleOf,
+  urlFor,
+} from "./docs.js";
 import { writeJson } from "./fsutil.js";
 import { neutralizeStrings } from "./inert.js";
 import { humanize } from "./slug.js";
 import type {
   DocFile,
-  DocsConfig,
+  SiteConfig,
   NavData,
   NavGroup,
   NavLink,
@@ -41,12 +49,15 @@ function byOrder<T>(order: (item: T) => number, label: (item: T) => string) {
 }
 
 /** Drops pages that would share a URL with an earlier one (Jx keeps the first and warns). */
-export function dedupe(files: DocFile[]): { files: DocFile[]; duplicates: string[] } {
+export function dedupe(
+  files: DocFile[],
+  prefix: string = DOCS_PREFIX,
+): { files: DocFile[]; duplicates: string[] } {
   const seen = new Map<string, string>();
   const kept: DocFile[] = [];
   const duplicates: string[] = [];
   for (const file of files) {
-    const url = urlFor(file);
+    const url = urlFor(file, prefix);
     const first = seen.get(url);
     if (first) {
       duplicates.push(
@@ -95,17 +106,23 @@ function collect(folder: Folder): DocFile[] {
   return out;
 }
 
-const link = (file: DocFile, label = labelOf(file)): NavLink => ({ label, url: urlFor(file) });
+/** The address of a file; the prefix is the one of the project the navigation is for. */
+type UrlOf = (file: Pick<DocFile, "dir" | "base" | "isIndex">) => string;
 
-function group(folder: Folder, visible: (file: DocFile) => boolean): NavGroup {
+const link = (url: UrlOf, file: DocFile, label = labelOf(file)): NavLink => ({
+  label,
+  url: url(file),
+});
+
+function group(folder: Folder, visible: (file: DocFile) => boolean, url: UrlOf): NavGroup {
   const files = collect(folder);
   return {
     label: folderLabel(folder),
-    url: folder.index ? urlFor(folder.index) : null,
-    urls: files.map(urlFor),
+    url: folder.index ? url(folder.index) : null,
+    urls: files.map((file) => url(file)),
     pages: files
       .filter(visible)
-      .map((file) => (file === folder.index ? link(file, "Overview") : link(file))),
+      .map((file) => (file === folder.index ? link(url, file, "Overview") : link(url, file))),
   };
 }
 
@@ -122,15 +139,17 @@ export function buildNav(
   published: DocFile[],
   name = "Documentation",
   docsFolder = "docs",
+  prefix: string = DOCS_PREFIX,
 ): { nav: NavData; warnings: string[] } {
-  const { files, duplicates } = dedupe(published);
+  const urlOf: UrlOf = (file) => urlFor(file, prefix);
+  const { files, duplicates } = dedupe(published, prefix);
   const warnings = [...duplicates];
   const root = tree(files);
   if (!root.index) {
     const readme =
       docsFolder === "" || docsFolder === "." ? "README.md" : `${docsFolder}/README.md`;
     throw new Error(
-      `${readme} is missing: it is the documentation home (/docs/). Add one, or an index.md.`,
+      `${readme} is missing: it is the documentation home (${prefix}/). Add one, or an index.md.`,
     );
   }
   const home = root.index;
@@ -141,7 +160,7 @@ export function buildNav(
 
   const flat: Array<{ title: string; url: string; file: DocFile; section: string }> = [];
   const push = (file: DocFile, section: string) => {
-    if (visible(file)) flat.push({ title: titleOf(file, name), url: urlFor(file), file, section });
+    if (visible(file)) flat.push({ title: titleOf(file, name), url: urlOf(file), file, section });
   };
 
   push(home, "");
@@ -153,31 +172,33 @@ export function buildNav(
     const label = folderLabel(top);
     const own = [...(top.index && visible(top.index) ? [top.index] : []), ...sortPages(top.pages)];
     const groups = sortFolders(top.folders)
-      .map((folder) => group(folder, visible))
+      .map((folder) => group(folder, visible, urlOf))
       .filter((g) => g.pages.length > 0);
     sections.push({
       label,
-      url: top.index ? urlFor(top.index) : null,
-      urls: collect(top).map(urlFor),
-      pages: own.map((file) => (file === top.index ? link(file, "Overview") : link(file))),
+      url: top.index ? urlOf(top.index) : null,
+      urls: collect(top).map((file) => urlOf(file)),
+      pages: own.map((file) =>
+        file === top.index ? link(urlOf, file, "Overview") : link(urlOf, file),
+      ),
       groups,
     });
     for (const file of collect(top)) push(file, label);
   }
 
   const sectionOf = new Map<string, string>();
-  for (const section of sections) for (const url of section.urls) sectionOf.set(url, section.label);
+  for (const section of sections) for (const u of section.urls) sectionOf.set(u, section.label);
   const order = new Map(flat.map((entry, i) => [entry.url, i]));
   const pages: Record<string, PageInfo> = {};
   for (const file of files) {
-    const url = urlFor(file);
-    const at = order.get(url);
+    const address = urlOf(file);
+    const at = order.get(address);
     const before = at === undefined ? undefined : flat[at - 1];
     const after = at === undefined ? undefined : flat[at + 1];
-    pages[url] = {
+    pages[address] = {
       title: titleOf(file, name),
       description: descriptionOf(file),
-      section: sectionOf.get(url) ?? "",
+      section: sectionOf.get(address) ?? "",
       prev: before ? { title: before.title, url: before.url } : null,
       next: after ? { title: after.title, url: after.url } : null,
       edit: file.rel,
@@ -189,9 +210,9 @@ export function buildNav(
   const nav: NavData = {
     home: {
       label: root.index.data.nav_title ? labelOf(root.index, name) : "Overview",
-      url: urlFor(home),
+      url: urlOf(home),
     },
-    loose: loose.map((file) => link(file)),
+    loose: loose.map((file) => link(urlOf, file)),
     sections: sections.filter((s) => s.pages.length > 0 || s.groups.length > 0),
     expandAll: others.length <= EXPAND_ALL_LIMIT,
     pages,
@@ -222,11 +243,11 @@ export function buildNav(
  */
 export function writeNav(
   paths: Pick<Paths, "stagedDocs" | "navFile">,
-  config: Pick<DocsConfig, "name">,
-  o: { folder?: string } = {},
+  config: Pick<SiteConfig, "name">,
+  o: { folder?: string; prefix?: string } = {},
 ): { nav: NavData; warnings: string[]; pages: number } {
   const { files, problems } = readDocsWithProblems(paths.stagedDocs);
-  const { nav, warnings } = buildNav(files, config.name, o.folder);
+  const { nav, warnings } = buildNav(files, config.name, o.folder, o.prefix);
   writeJson(paths.navFile, nav);
   return {
     nav,

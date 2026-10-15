@@ -148,7 +148,7 @@ const CASES: Case[] = [
     name: "a raw HTML anchor came out as <a href></a>text",
     change: (s) => edit(guide(s), (t) => swap(t, "<p>Back", "<p><a href></a>Raw anchor. Back")),
     fails: [A.links],
-    says: /\/docs\/guide\/ \(<a href>\)\. A raw HTML <a href> in that page's Markdown .*`docusystem lint` lists it with its file and line/,
+    says: /\/docs\/guide\/ \(<a href>\)\. A raw HTML <a href> in that page's Markdown .*the lint output lists it with its file and line/,
   },
   {
     name: "a link has an empty href attribute value and no text",
@@ -774,5 +774,24 @@ describe("componentsOf", () => {
 
   test("a root without components has none", () => {
     expect(componentsOf(tempDir())).toEqual({ components: [], unreadable: [] });
+  });
+});
+
+describe("documentation prefixes", () => {
+  test("the search index must cover the pages below each prefix it is given, and only those", () => {
+    const site = copySite();
+    const search = (docsPrefixes: string[]) =>
+      assertBuild(site.root, site.dist, { cname: DOMAIN, routes: PAGES, docsPrefixes })[A.search]!;
+    // the default is /docs/: the fixture's two documentation pages are indexed
+    expect(search(["/docs/"]).ok).toBe(true);
+    expect(search(["/docs/"]).message).toContain("an entry for each of the 2 documentation pages");
+    // a prefix with no page below it asks for nothing
+    expect(search(["/nowhere/docs/"]).ok).toBe(true);
+    // the landing page of the site is not in the search index: a prefix that covers it fails
+    const wide = search(["/"]);
+    expect(wide.ok).toBe(false);
+    expect(wide.message).toMatch(/no entry for: .*\//);
+    // several prefixes: all of them are checked
+    expect(search(["/nowhere/docs/", "/docs/"]).ok).toBe(true);
   });
 });

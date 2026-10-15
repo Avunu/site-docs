@@ -163,18 +163,18 @@ describe("walkFiles", () => {
     });
   });
 
-  describe("symbolic links into .git, node_modules and .docusystem are refused", () => {
+  describe("symbolic links into .git, node_modules and .site-docs are refused", () => {
     test("inside the repository, they are skipped with their own reason", () => {
       const { repo, docs } = layout({
         "docs/ok.md": "ok",
         ".git/config": "[remote] token",
         "node_modules/pkg/index.js": "x",
         "vendor/lib/node_modules/y.js": "y",
-        "docs-site/.docusystem/site/page.md": "staged",
+        "docs-site/.site-docs/site/page.md": "staged",
         "docs/git-config.md": { symlink: "../.git/config" },
         "docs/modules": { symlink: "../node_modules" },
         "docs/nested-modules.md": { symlink: "../vendor/lib/node_modules/y.js" },
-        "docs/staged": { symlink: "../docs-site/.docusystem" },
+        "docs/staged": { symlink: "../docs-site/.site-docs" },
       });
       expect(walkFiles(docs, { repoRoot: repo })).toEqual({
         files: ["ok.md"],
@@ -182,7 +182,7 @@ describe("walkFiles", () => {
           { path: "git-config.md", reason: "a symbolic link into .git" },
           { path: "modules", reason: "a symbolic link into node_modules" },
           { path: "nested-modules.md", reason: "a symbolic link into node_modules" },
-          { path: "staged", reason: "a symbolic link into .docusystem" },
+          { path: "staged", reason: "a symbolic link into .site-docs" },
         ],
       });
     });
@@ -210,14 +210,14 @@ describe("walkFiles", () => {
   });
 
   describe("real folders that are never content are not entered", () => {
-    test(".git, node_modules and .docusystem at any depth, and the site's dist", () => {
+    test(".git, node_modules and .site-docs at any depth, and the site's dist", () => {
       const { repo } = layout({
         "docs/ok.md": "ok",
         "docs/.git/HEAD": "ref",
         "docs/node_modules/pkg/index.md": "x",
         "docs/guide/node_modules/deep.md": "x",
         "docs/guide/page.md": "p",
-        "docs-site/.docusystem/site/x.md": "x",
+        "docs-site/.site-docs/site/x.md": "x",
         "docs-site/dist/index.html": "h",
         "docs-site/docusystem.config.json": "{}",
       });
@@ -463,22 +463,22 @@ describe("removeInside", () => {
   test("removes a file or a whole folder inside the parent, and a missing path is fine", () => {
     const dir = tempDir();
     writeTree(dir, {
-      "site/.docusystem/site/a/b.txt": "b",
+      "site/.site-docs/site/a/b.txt": "b",
       "site/dist/i.html": "i",
       "keep.txt": "k",
     });
-    removeInside(at(dir, "site/.docusystem/site"), at(dir, "site/.docusystem"));
+    removeInside(at(dir, "site/.site-docs/site"), at(dir, "site/.site-docs"));
     expect(listTree(dir)).toEqual([
       "keep.txt",
       "site/",
-      "site/.docusystem/",
+      "site/.site-docs/",
       "site/dist/",
       "site/dist/i.html",
     ]);
     removeInside(at(dir, "site/dist/i.html"), at(dir, "site"));
     removeInside(at(dir, "site/dist/gone.html"), at(dir, "site"));
     removeInside(at(dir, "site/nothing/at/all"), at(dir, "site"));
-    expect(listTree(dir)).toEqual(["keep.txt", "site/", "site/.docusystem/", "site/dist/"]);
+    expect(listTree(dir)).toEqual(["keep.txt", "site/", "site/.site-docs/", "site/dist/"]);
   });
 
   test("refuses the parent itself, its parents, siblings, and paths that climb out", () => {
@@ -515,10 +515,10 @@ describe("removeInside", () => {
     const dir = tempDir();
     writeTree(dir, {
       "outside/precious.txt": "precious",
-      "site/.docusystem": { symlink: "../outside" },
+      "site/.site-docs": { symlink: "../outside" },
       "site/dist": { symlink: "../outside" },
     });
-    expect(() => removeInside(at(dir, "site/.docusystem/precious.txt"), at(dir, "site"))).toThrow(
+    expect(() => removeInside(at(dir, "site/.site-docs/precious.txt"), at(dir, "site"))).toThrow(
       /symbolic link/,
     );
     expect(readFileSync(at(dir, "outside/precious.txt"), "utf8")).toBe("precious");

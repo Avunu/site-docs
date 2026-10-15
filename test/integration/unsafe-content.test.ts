@@ -7,13 +7,14 @@ import { describe, expect, test } from "vitest";
 import { policyProblems } from "../../src/lib/csp.js";
 import { distFiles, htmlPages } from "../../src/lib/links.js";
 import { runCli } from "../support/index.js";
-import { jxEnv, repoFrom, type Repo } from "./support.js";
+import { jxEnv, workspaceFrom, type Workspace } from "./support.js";
 
 /** What `check` does in CI: a strict build and the checks after it. */
-const strict = (repo: Repo, args: string[] = ["build"]) =>
-  runCli(args, { cwd: repo.siteDir, env: jxEnv({ CI: "true" }) });
+const strict = (repo: Workspace, args: string[] = ["build"]) =>
+  runCli(args, { cwd: repo.dir, env: jxEnv({ CI: "true" }) });
 /** A build for writing documentation: the lint's errors are warnings. */
-const lenient = (repo: Repo) => runCli(["build", "--lenient"], { cwd: repo.siteDir, env: jxEnv() });
+const lenient = (repo: Workspace) =>
+  runCli(["build", "--lenient"], { cwd: repo.dir, env: jxEnv() });
 
 const HOSTILE = [
   "---",
@@ -34,7 +35,8 @@ const HOSTILE = [
   "",
 ].join("\n");
 
-const hostileRepo = (page: string) => repoFrom("canary/clean", { "docs/guide/hostile.md": page });
+const hostileRepo = (page: string) =>
+  workspaceFrom("clean", { "projects/demo/docs/guide/hostile.md": page });
 
 describe("a strict build of a tree with code in its Markdown", () => {
   test("is refused with the file and line of every construct, and publishes nothing", async () => {
@@ -42,7 +44,7 @@ describe("a strict build of a tree with code in its Markdown", () => {
     const { code, stdout, stderr } = await strict(repo);
     const all = `${stdout}\n${stderr}`;
     expect(code, all).toBe(1);
-    expect(existsSync(repo.paths.dist)).toBe(false);
+    expect(existsSync(repo.dist)).toBe(false);
     const lint = all.split("\n").filter((line) => line.startsWith("lint: error: "));
     expect(lint.map((l) => /hostile\.md:(\d+)/.exec(l)?.[1])).toEqual([
       "7",
@@ -53,11 +55,11 @@ describe("a strict build of a tree with code in its Markdown", () => {
       "15",
     ]);
     expect(lint[0]).toContain("The onerror attribute on <img> is an event handler");
-    expect(all).toMatch(/lint: error: docs\/guide\/hostile\.md:9 {2}<iframe> is not allowed/);
+    expect(all).toMatch(/lint: error: demo\/docs\/guide\/hostile\.md:9 {2}<iframe> is not allowed/);
     expect(all).toMatch(/hostile\.md:13 {2}<script> is not allowed/);
     expect(all).toMatch(/hostile\.md:15 {2}The link is "javascript:alert\(1\)"/);
     expect(all).toMatch(/hostile\.md:15 {2}The image is "data:image\/svg\+xml;base64,PHN2Zz4="/);
-    expect(all).toMatch(/docusystem: \d+ document problem\(s\) above fail the build\./);
+    expect(all).toMatch(/docs: \d+ document problem\(s\) above fail the build\./);
   });
 
   test("`check --ci` annotates them", async () => {
@@ -65,16 +67,9 @@ describe("a strict build of a tree with code in its Markdown", () => {
     const { code, stdout } = await strict(repo, ["check", "--ci"]);
     expect(code).toBe(1);
     expect(stdout).toMatch(
-      /^::error file=docs\/guide\/hostile\.md,line=9,title=lint::<iframe> is not allowed in documentation/m,
+      /^::error file=projects\/demo\/docs\/guide\/hostile\.md,line=9,title=lint::demo: <iframe> is not allowed in documentation/m,
     );
     expect(stdout.split("\n").at(-1)).toBe("check: FAILED");
-  });
-
-  test("`lint` alone says the same", async () => {
-    const repo = hostileRepo(HOSTILE);
-    const { code, stdout } = await strict(repo, ["lint"]);
-    expect(code).toBe(1);
-    expect(stdout).toMatch(/^error: .*hostile\.md:9 .*<iframe> is not allowed/m);
   });
 });
 
@@ -84,13 +79,15 @@ describe("a lenient build does not publish them either: the output assertions ar
     const { code, stdout, stderr } = await lenient(repo);
     const all = `${stdout}\n${stderr}`;
     expect(code, all).toBe(1);
-    expect(all).toMatch(/lint: warning: docs\/guide\/hostile\.md:9 {2}<iframe> is not allowed/);
     expect(all).toMatch(
-      /assert: FAIL: pages hold something that runs code or embeds another page: \/docs\/guide\/hostile\//,
+      /lint: warning: demo\/docs\/guide\/hostile\.md:9 {2}<iframe> is not allowed/,
+    );
+    expect(all).toMatch(
+      /assert: FAIL: pages hold something that runs code or embeds another page: \/demo\/docs\/guide\/hostile\//,
     );
     expect(all).toMatch(/<img onerror="document\.title=1">, <iframe> and 5 more/);
     expect(all).toMatch(/Nothing was published\./);
-    expect(existsSync(repo.paths.dist)).toBe(false);
+    expect(existsSync(repo.dist)).toBe(false);
   });
 
   test("a directive makes elements the lint's reading of HTML does not see, and the output refuses them", async () => {
@@ -119,19 +116,20 @@ describe("a lenient build does not publish them either: the output assertions ar
     const all = `${stdout}\n${stderr}`;
     expect(code, all).toBe(1);
     expect(all).toMatch(
-      /\/docs\/guide\/hostile\/ \(<script> in the page content, <img onerror="document\.title=1"> and 1 more\)/,
+      /\/demo\/docs\/guide\/hostile\/ \(<script> in the page content, <img onerror="document\.title=1"> and 1 more\)/,
     );
-    expect(existsSync(repo.paths.dist)).toBe(false);
+    expect(existsSync(repo.dist)).toBe(false);
   });
 
   test("files that a page links to are published beside the pages, so an HTML, script or active SVG file is refused", async () => {
-    const repo = repoFrom("canary/clean", {
-      "docs/guide/files.md":
+    const repo = workspaceFrom("clean", {
+      "projects/demo/docs/guide/files.md":
         "---\ntitle: Files\n---\n\n# Files\n\n[a page](evil.html), [a script](evil.js) and ![a picture](evil.svg), [a PDF](ok.pdf).\n",
-      "docs/guide/evil.html": "<script>document.title=1</script>",
-      "docs/guide/evil.js": "document.title=1",
-      "docs/guide/evil.svg": '<svg xmlns="http://www.w3.org/2000/svg" onload="document.title=1"/>',
-      "docs/guide/ok.pdf": "%PDF-1.4",
+      "projects/demo/docs/guide/evil.html": "<script>document.title=1</script>",
+      "projects/demo/docs/guide/evil.js": "document.title=1",
+      "projects/demo/docs/guide/evil.svg":
+        '<svg xmlns="http://www.w3.org/2000/svg" onload="document.title=1"/>',
+      "projects/demo/docs/guide/ok.pdf": "%PDF-1.4",
     });
     // nothing in the Markdown is HTML: the lint has nothing to say, the output does
     const { code, stdout, stderr } = await strict(repo);
@@ -141,17 +139,19 @@ describe("a lenient build does not publish them either: the output assertions ar
     expect(all).toMatch(
       /assert: FAIL: files linked from the Markdown would run on the site's domain when opened: /,
     );
-    expect(all).toContain("/content/docs/guide/evil.html (a .html file");
-    expect(all).toContain("/content/docs/guide/evil.js (a .js file");
-    expect(all).toMatch(/\/content\/docs\/guide\/evil\.svg \(onload="document\.title=1"\)/);
+    expect(all).toContain("/content/docs/demo/docs/guide/evil.html (a .html file");
+    expect(all).toContain("/content/docs/demo/docs/guide/evil.js (a .js file");
+    expect(all).toMatch(
+      /\/content\/docs\/demo\/docs\/guide\/evil\.svg \(onload="document\.title=1"\)/,
+    );
     expect(all).not.toContain("ok.pdf (");
-    expect(existsSync(repo.paths.dist)).toBe(false);
+    expect(existsSync(repo.dist)).toBe(false);
   });
 });
 
 describe("a clean tree", () => {
   test("is built, and every page carries a policy that names its inline scripts", async () => {
-    const repo = repoFrom("canary/clean");
+    const repo = workspaceFrom("clean");
     const { code, stdout, stderr } = await strict(repo);
     expect(code, `${stdout}\n${stderr}`).toBe(0);
     expect(stdout).toMatch(
@@ -161,7 +161,7 @@ describe("a clean tree", () => {
       /^assert: ok: every file published from the Markdown folder is a picture, a document or data, none runs$/m,
     );
     expect(stdout).toMatch(/^assert: ok: \d+ pages carry a Content-Security-Policy that blocks /m);
-    const pages = htmlPages(repo.paths.dist);
+    const pages = htmlPages(repo.dist);
     expect(pages.length).toBeGreaterThan(4);
     for (const file of pages) {
       const html = readFileSync(file, "utf8");
@@ -170,14 +170,14 @@ describe("a clean tree", () => {
       expect(html.match(/<meta http-equiv="Content-Security-Policy"/g), file).toHaveLength(1);
     }
     // the SVG the README shows is a picture, and is published
-    expect(distFiles(repo.paths.dist).some((f) => f.endsWith("square.svg"))).toBe(true);
+    expect(distFiles(repo.dist).some((f) => f.endsWith("square.svg"))).toBe(true);
   });
 
   test("a second build is the same site, policy included", async () => {
-    const repo = repoFrom("canary/clean");
+    const repo = workspaceFrom("clean");
     await strict(repo);
-    const first = readFileSync(join(repo.paths.dist, "index.html"), "utf8");
+    const first = readFileSync(join(repo.dist, "index.html"), "utf8");
     await strict(repo);
-    expect(readFileSync(join(repo.paths.dist, "index.html"), "utf8")).toBe(first);
+    expect(readFileSync(join(repo.dist, "index.html"), "utf8")).toBe(first);
   });
 });

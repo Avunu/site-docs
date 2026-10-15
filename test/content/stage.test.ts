@@ -22,7 +22,7 @@ import {
   stageSite,
   type StageOptions,
 } from "../../src/lib/stage.js";
-import type { DocsConfig } from "../../src/lib/types.js";
+import type { SiteConfig } from "../../src/lib/types.js";
 import { INERT } from "../../src/lib/inert.js";
 import { makeTree, pathsIn, symlinksWork } from "./helpers.js";
 
@@ -487,7 +487,7 @@ describe.skipIf(!symlinksWork)("the symlink policy (4.1)", () => {
     const repoRoot = join(base, "repo");
     const options: StageOptions = {
       source: join(repoRoot, "docs"),
-      dest: join(repoRoot, "docs-site", ".docusystem", "site", ".generated", "docs"),
+      dest: join(repoRoot, "docs-site", ".site-docs", "site", ".generated", "docs"),
       repoRoot,
       siteDir: join(repoRoot, "docs-site"),
       repoUrl: "https://github.com/Avunu/app",
@@ -579,7 +579,7 @@ describe.skipIf(!symlinksWork)("the symlink policy (4.1)", () => {
     // docs/ is the whole repository (the Markdown lives at the root): the site folder is inside it.
     writeTree(repoRoot, { "docs-site/dist/index.html": "built", "docs-site/package.json": "{}" });
     const source = repoRoot;
-    const dest = join(repoRoot, "docs-site", ".docusystem", "site", ".generated", "docs");
+    const dest = join(repoRoot, "docs-site", ".site-docs", "site", ".generated", "docs");
     const result = stageDocs({
       source,
       dest,
@@ -620,7 +620,7 @@ test("stageSite takes the folders from the paths and the repository from the con
     LICENSE: "MIT",
   });
   const paths = pathsIn(root);
-  const config = { repo: "https://github.com/Avunu/docusystem-example" } as DocsConfig;
+  const config = { repo: "https://github.com/Avunu/docusystem-example" } as SiteConfig;
   const result = stageSite(paths, config, "develop");
   expect(result.files).toBe(2);
   expect(result.links.map((l) => [l.file, l.line, l.from, l.to])).toEqual([

@@ -81,7 +81,7 @@
               "tagName": "a",
               "attributes": {
                 "class": "btn",
-                "href": "/docs/"
+                "href": "/"
               },
               "children": ["Browse the documentation"]
             },
@@ -89,9 +89,9 @@
               "tagName": "a",
               "attributes": {
                 "class": "btn secondary",
-                "href": "/"
+                "href": "https://avunu.net/"
               },
-              "textContent": "${state.config.data.name} home"
+              "textContent": "Back to avunu.net"
             }
           ]
         }

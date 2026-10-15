@@ -2,8 +2,7 @@
 // Prints the page title, horizontal overflow, console errors and failed requests for each.
 //
 //   bun shots.ts <dist> <outDir> [route ...]      (default routes: every page in the sitemap)
-//   (<dist> is <site>/.docusystem/site/dist; the screenshots are for a person to look at, nothing is compared)
-//   bun shots.ts <dist> <outDir> --offline        (the projects.json fetch fails: the snapshot must carry the menu)
+//   (<dist> is <site>/.site-docs/site/dist; the screenshots are for a person to look at, nothing is compared)
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
@@ -13,16 +12,14 @@ import {
   routesOf,
   serve,
   slugOf,
-  snapshotOf,
-  stubCatalog,
+  stubNetwork,
   watch,
 } from "./lib.ts";
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-const offline = process.argv.includes("--offline");
 const [distArg, outArg, ...routeArgs] = args;
 if (!distArg || !outArg) {
-  console.error("usage: bun shots.ts <dist> <outDir> [route ...] [--offline]");
+  console.error("usage: bun shots.ts <dist> <outDir> [route ...]");
   process.exit(2);
 }
 const dist = resolve(distArg);
@@ -32,14 +29,13 @@ const routes = routeArgs.length > 0 ? routeArgs : routesOf(dist);
 const server = serve(dist);
 const browser = await launch();
 let problems = 0;
-const snapshot = snapshotOf(dist);
 for (const scheme of SCHEMES) {
   for (const width of WIDTHS) {
     const context = await browser.newContext({
       viewport: { width, height: 900 },
       colorScheme: scheme,
     });
-    await stubCatalog(context, offline ? null : snapshot);
+    await stubNetwork(context);
     for (const route of routes) {
       const page = await context.newPage();
       const probe = watch(page);
@@ -64,10 +60,8 @@ for (const scheme of SCHEMES) {
         overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
         h1: document.querySelectorAll("h1").length,
       }));
-      const failed = probe.failedRequests.filter((r) => !(offline && r.includes("/projects.json")));
-      const errors = probe.consoleErrors.filter(
-        (e) => !(offline && /projects\.json|ERR_FAILED/.test(e)),
-      );
+      const failed = probe.failedRequests;
+      const errors = probe.consoleErrors;
       const bad = m.overflow || m.h1 !== 1 || failed.length > 0 || errors.length > 0;
       if (bad) problems++;
       console.log(

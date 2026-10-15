@@ -17,15 +17,15 @@ import {
   unhighlightedLanguages,
 } from "../../src/lib/postbuild.js";
 import { routeOfFile } from "../../src/lib/links.js";
-import type { DocsConfig, NavData, PageInfo } from "../../src/lib/types.js";
+import type { SiteConfig, NavData, PageInfo } from "../../src/lib/types.js";
 import { listTree, readTree, tempDir, writeTree } from "../support/index.js";
 import { OUTPUT_FIXTURES, copySite, drop, edit, put } from "./helpers.js";
 
 const SITE = "https://frappe-nix.avunu.net";
 
 const config = (
-  o: Partial<DocsConfig> & { branch?: string } = {},
-): DocsConfig & { branch: string } => ({
+  o: Partial<SiteConfig> & { branch?: string } = {},
+): SiteConfig & { branch: string } => ({
   name: "frappe-nix",
   tagline: "Reproducible Nix infrastructure for Frappe and ERPNext.",
   slug: "frappe-nix",
@@ -313,6 +313,53 @@ describe("runPostbuild", () => {
     const html = readFileSync(join(dist, "docs", "index.html"), "utf8");
     expect(html).toContain('href="https://github.com/Avunu/frappe-nix/blob/trunk/lib/tool.nix"');
     expect(html).toContain('href="missing.txt"');
+  });
+
+  test("with many projects, a page's repository links go to the repository, branch and files of its own project", () => {
+    const workspace = writeTree(tempDir(), {
+      "projects/alpha/LICENSE": "MIT",
+      "projects/alpha/lib/tool.nix": "x",
+      "projects/alpha/docs/README.md": "# A\n",
+      "projects/beta/LICENSE": "BSD",
+      "projects/beta/lib/tool.nix": "y",
+      "projects/beta/documentation/README.md": "# B\n",
+    });
+    const dist = join(workspace, "dist");
+    const body = '<a href="lib/tool.nix">tool</a><a href="LICENSE">license</a>';
+    put(join(dist, "alpha", "docs", "index.html"), page(body, "/alpha/docs"));
+    put(join(dist, "beta", "docs", "index.html"), page(body, "/beta/docs"));
+    const owner = (name: string, docs: string, repo: string, branch: string) => ({
+      prefix: `/${name}/docs`,
+      repoRoot: join(workspace, "projects", name),
+      docsDir: join(workspace, "projects", name, docs),
+      repo,
+      branch,
+    });
+    const summary = runPostbuild(
+      dist,
+      config({ domain: "docs.example.test", repo: "https://github.com/Example" }),
+      navOf({
+        "/alpha/docs/": info("A", "README.md"),
+        "/beta/docs/": info("B", "README.md"),
+      }),
+      {
+        repoRoot: workspace,
+        docsDir: workspace,
+        projects: [
+          owner("alpha", "docs", "https://github.com/Example/alpha", "main"),
+          owner("beta", "documentation", "https://github.com/Example/beta-renamed", "trunk"),
+        ],
+      },
+    );
+    expect(summary.repoLinks.map((l) => l.to).sort()).toEqual([
+      "https://github.com/Example/alpha/blob/main/LICENSE",
+      "https://github.com/Example/alpha/blob/main/lib/tool.nix",
+      "https://github.com/Example/beta-renamed/blob/trunk/LICENSE",
+      "https://github.com/Example/beta-renamed/blob/trunk/lib/tool.nix",
+    ]);
+    const beta = readFileSync(join(dist, "beta", "docs", "index.html"), "utf8");
+    expect(beta).toContain('href="https://github.com/Example/beta-renamed/blob/trunk/LICENSE"');
+    expect(beta).not.toContain("alpha");
   });
 
   test("a page that is not in the sidebar data keeps its repository-relative links (the crawl reports them)", () => {

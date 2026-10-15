@@ -48,7 +48,7 @@ import { ensureRealDir, isInside, removeInside, walkFiles } from "./fsutil.js";
 import { neutralizeSource } from "./inert.js";
 import { destinations, htmlAttributes, lines, type Destination } from "./markdown.js";
 import { githubUrl } from "./repo-links.js";
-import type { DocsConfig, Paths, StagedLink, StageResult } from "./types.js";
+import type { SiteConfig, Paths, StagedLink, StageResult } from "./types.js";
 
 // Staging is where the leading comment is moved, so it stays reachable from here too.
 export { moveLeadingComment };
@@ -396,7 +396,7 @@ export function stageDocs(options: StageOptions): StageResult {
 /** Step 5 of the pipeline (5.1): stages the Markdown folder for the site. */
 export function stageSite(
   paths: Pick<Paths, "siteDir" | "repoRoot" | "docsDir" | "stagedDocs">,
-  config: Pick<DocsConfig, "repo">,
+  config: Pick<SiteConfig, "repo">,
   branch: string,
 ): StageResult {
   return stageDocs({

@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { expect, test } from "vitest";
 import { runCli } from "../support/index.js";
-import { jxEnv, repoFrom } from "./support.js";
+import { jxEnv, workspaceFrom } from "./support.js";
 
 /** mulberry32: a small seeded generator, so that the corpus is the same on every machine. */
 function random(seed: number): () => number {
@@ -167,7 +167,7 @@ function page(next: () => number, doc: number): { text: string; ids: string[] } 
 }
 
 test(`${DOCS} generated pages (seed ${SEED}): nothing runs, in a lenient build`, async () => {
-  const repo = repoFrom("canary/clean");
+  const repo = workspaceFrom("clean");
   const next = random(SEED);
   const source = new Map<string, string>();
   for (let doc = 0; doc < DOCS; doc++) {
@@ -175,18 +175,17 @@ test(`${DOCS} generated pages (seed ${SEED}): nothing runs, in a lenient build`,
     const file = join(repo.docsDir, "fuzz", `p${doc}.md`);
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, text);
-    for (const id of ids) source.set(id, `docs/fuzz/p${doc}.md\n${JSON.stringify(text)}`);
+    for (const id of ids)
+      source.set(id, `projects/demo/docs/fuzz/p${doc}.md\n${JSON.stringify(text)}`);
   }
   const { stdout, stderr } = await runCli(["build", "--lenient"], {
-    cwd: repo.siteDir,
+    cwd: repo.dir,
     env: jxEnv(),
   });
   // Jx must have run: the clean pages' output is the evidence (the run may still fail on its own terms)
-  expect(existsSync(repo.paths.root), `${stdout}\n${stderr}`).toBe(true);
-  expect(existsSync(join(repo.paths.root, "dist", "index.html")), `${stdout}\n${stderr}`).toBe(
-    true,
-  );
-  const ran = readdirSync(repo.paths.root)
+  expect(existsSync(repo.root), `${stdout}\n${stderr}`).toBe(true);
+  expect(existsSync(join(repo.root, "dist", "index.html")), `${stdout}\n${stderr}`).toBe(true);
+  const ran = readdirSync(repo.root)
     .filter((name) => name.startsWith("PWNED_"))
     .map((name) => name.slice("PWNED_".length));
   expect(

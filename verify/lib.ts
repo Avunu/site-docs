@@ -1,9 +1,9 @@
 // Shared helpers for the browser suites: a static server for a built site, a Chrome launcher, and the
-// stub for https://avunu.net/projects.json so that a run never depends on the network.
+// stub that keeps a run off the network.
 //
-// Every suite takes the Jx output of a built site, `<site>/.docusystem/site/dist`. Its parent is the
-// assembled Jx project root, which holds what the suites read next to it: `docusystem.config.json` (the
-// resolved configuration) and `data/projects.snapshot.json` (the bundled project catalog).
+// Every suite takes the Jx output of a built workspace, `<root>/.site-docs/site/dist`. Its parent is the
+// assembled Jx project root, which holds what the suites read next to it: `data/projects.snapshot.json`
+// (the project catalog the site was built with). The documentation of a project is at `/<path>/docs/`.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, sep } from "node:path";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
@@ -71,39 +71,20 @@ export async function launch(): Promise<Browser> {
   return chromium.launch({ executablePath: chromeBin(), args: ["--no-sandbox"] });
 }
 
-/** The resolved configuration of the site (`docusystem.config.json` of the assembled root). */
-export function configOf(dist: string): {
-  name: string;
-  slug: string;
-  domain: string;
-  docs?: string;
-} {
-  return JSON.parse(readFileSync(join(dist, "..", "docusystem.config.json"), "utf8"));
-}
-
 /** The text of the bundled project catalog the site was built with. */
 export function snapshotOf(dist: string): string {
   return readFileSync(join(dist, "..", "data", "projects.snapshot.json"), "utf8");
 }
 
 /**
- * Makes https://avunu.net/projects.json answer with `body` (with the CORS header the real one sends), or
- * fail when `body` is null; and answers every image of another site with a small placeholder (a page may
- * show an image of its repository from GitHub, which a sample repository does not have), so that a run
- * never depends on the network.
+ * Keeps a run off the network: every image of another site gets a small placeholder (a page may show an
+ * image of its repository from GitHub, which a sample repository does not have) and every other request
+ * to another site fails. The pages themselves ask no other site for anything (their policy allows
+ * connections to the page's own origin only), so nothing the suites check depends on this.
  */
-export async function stubCatalog(context: BrowserContext, body: string | null): Promise<void> {
-  await context.route("https://avunu.net/projects.json", (route) => {
-    if (body === null) return route.abort("failed");
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      headers: { "access-control-allow-origin": "*" },
-      body,
-    });
-  });
+export async function stubNetwork(context: BrowserContext): Promise<void> {
   await context.route(
-    (url) => url.protocol === "https:" && url.pathname !== "/projects.json",
+    (url) => url.protocol === "https:",
     (route) => {
       if (route.request().resourceType() !== "image") return route.abort("failed");
       return route.fulfill({
@@ -148,19 +129,32 @@ export function routesOf(dist: string): string[] {
 }
 
 /**
- * A documentation page for the suites that open overlays and need something to show: the page below a
- * section with the most headings (so that the contents list has entries), else the first.
+ * A documentation page for the suites that open overlays and need something to show: the page of the
+ * documentation home's project with the most headings (so that the contents list has entries), else the
+ * first.
  */
 export function defaultDocsRoute(dist: string): string {
-  const docs = routesOf(dist).filter((r) => r.startsWith("/docs/") && r !== "/docs/");
+  const home = docsHome(dist);
+  const docs = routesOf(dist).filter((r) => r.startsWith(home) && r !== home);
   const headings = (route: string) => {
     const file = join(dist, route, "index.html");
     return existsSync(file) ? (readFileSync(file, "utf8").match(/<h2[\s>]/g) ?? []).length : 0;
   };
   return docs.reduce(
     (best, route) => (headings(route) > headings(best) ? route : best),
-    docs[0] ?? "/docs/",
+    docs[0] ?? home,
   );
+}
+
+/** A documentation page of any project: `/<path>/docs/...`. */
+export const isDocsRoute = (route: string): boolean => /^\/[^/]+\/docs\//.test(route);
+
+/**
+ * The documentation home a suite opens: the first project's `/<path>/docs/` (sorted by path), or the
+ * one in DOCS_HOME (a route such as `/frappe-nix/docs/`).
+ */
+export function docsHome(dist: string): string {
+  return process.env.DOCS_HOME ?? routesOf(dist).find((r) => /^\/[^/]+\/docs\/$/.test(r)) ?? "/docs/";
 }
 
 export function slugOf(route: string): string {

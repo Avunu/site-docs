@@ -6,7 +6,7 @@
     "declarationMap": false,
     "sourceMap": false,
     "incremental": false,
-    "outDir": "dist",
+    "outDir": "build",
     "rootDir": "src",
     "newLine": "lf"
   },

@@ -1,34 +1,25 @@
 // Proves that every fenced code block of the Markdown comes out of the build with exactly its text:
 // the highlighter, the emitter and the whitespace fixes must neither lose nor add a character.
 //
-//   bun fences.ts <site folder or Jx root>
+//   bun fences.ts <workspace root>
 //
-// Takes the docs-site folder of a built project, or the assembled Jx root inside it
-// (`<site>/.docusystem/site`). Reads the sidebar data the build generated (`.generated/nav.json`), the
-// Markdown in the folder the resolved configuration names (`docsPath`, relative to the repository root,
-// which is the nearest folder above that has a `.git`) and the pages the build wrote (`dist/`).
+// Takes the workspace root (the folder with projects.json) that has been built. Reads the sidebar data
+// of each project (`.site-docs/site/.generated/nav/<path>.json`), the Markdown in the folder the
+// registry names (`projects/<path>/<docs>`) and the pages the build wrote (`dist/`).
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
-const given = resolve(process.argv[2] ?? ".");
-const root = existsSync(join(given, ".generated", "nav.json"))
-  ? given
-  : join(given, ".docusystem", "site");
-if (!existsSync(join(root, ".generated", "nav.json"))) {
-  console.error(`fences: ${given} has not been built (no .generated/nav.json); run docusystem check first`);
+const root = resolve(process.argv[2] ?? ".");
+const jxRoot = join(root, ".site-docs", "site");
+if (!existsSync(join(jxRoot, ".generated", "nav"))) {
+  console.error(
+    `fences: ${root} has not been built (no .site-docs/site/.generated/nav); run \`node build/cli.js check\` first`,
+  );
   process.exit(2);
 }
-const nav = JSON.parse(readFileSync(join(root, ".generated", "nav.json"), "utf8")) as {
-  pages: Record<string, { edit: string }>;
+const registry = JSON.parse(readFileSync(join(root, "projects.json"), "utf8")) as {
+  projects: Array<{ path: string; docs?: string; local?: boolean }>;
 };
-const config = JSON.parse(readFileSync(join(root, "docusystem.config.json"), "utf8")) as {
-  docsPath: string;
-};
-let repoRoot = dirname(given);
-while (!existsSync(join(repoRoot, ".git")) && dirname(repoRoot) !== repoRoot) {
-  repoRoot = dirname(repoRoot);
-}
-const docs = join(repoRoot, config.docsPath);
 
 const decode = (html: string) =>
   html
@@ -74,35 +65,44 @@ export function fencesOf(markdown: string): string[] {
 
 let checked = 0;
 let bad = 0;
-for (const [url, info] of Object.entries(nav.pages)) {
-  const source = readFileSync(join(docs, info.edit), "utf8");
-  const wanted = fencesOf(source);
-  const file = join(root, "dist", url.replace(/^\//, ""), "index.html");
-  if (!existsSync(file)) continue;
-  const built = [
-    ...readFileSync(file, "utf8").matchAll(
-      /<pre><code[^>]*>([\s\S]*?)<\/code>(?:<button[\s\S]*?<\/button>)?<\/pre>/g,
-    ),
-  ].map((m) => decode(m[1]!));
-  if (built.length !== wanted.length) {
-    bad++;
-    console.log(
-      `MISMATCH ${url}: the source has ${wanted.length} code block(s), the page ${built.length}`,
-    );
-    continue;
-  }
-  wanted.forEach((text, i) => {
-    checked++;
-    const want = text.replace(/\n+$/, "");
-    const got = built[i]!.replace(/\n+$/, "");
-    if (want !== got) {
+for (const project of registry.projects) {
+  const nav = JSON.parse(
+    readFileSync(join(jxRoot, ".generated", "nav", `${project.path}.json`), "utf8"),
+  ) as { pages: Record<string, { edit: string }> };
+  const docs = join(
+    project.local === true ? root : join(root, "projects", project.path),
+    project.docs ?? "docs",
+  );
+  for (const [url, info] of Object.entries(nav.pages)) {
+    const source = readFileSync(join(docs, info.edit), "utf8");
+    const wanted = fencesOf(source);
+    const file = join(jxRoot, "dist", url.replace(/^\//, ""), "index.html");
+    if (!existsSync(file)) continue;
+    const built = [
+      ...readFileSync(file, "utf8").matchAll(
+        /<pre><code[^>]*>([\s\S]*?)<\/code>(?:<button[\s\S]*?<\/button>)?<\/pre>/g,
+      ),
+    ].map((m) => decode(m[1]!));
+    if (built.length !== wanted.length) {
       bad++;
-      const at = [...want].findIndex((c, k) => c !== got[k]);
       console.log(
-        `MISMATCH ${url} block ${i + 1}: differs at character ${at}: wanted ${JSON.stringify(want.slice(Math.max(0, at - 20), at + 30))}, got ${JSON.stringify(got.slice(Math.max(0, at - 20), at + 30))}`,
+        `MISMATCH ${url}: the source has ${wanted.length} code block(s), the page ${built.length}`,
       );
+      continue;
     }
-  });
+    wanted.forEach((text, i) => {
+      checked++;
+      const want = text.replace(/\n+$/, "");
+      const got = built[i]!.replace(/\n+$/, "");
+      if (want !== got) {
+        bad++;
+        const at = [...want].findIndex((c, k) => c !== got[k]);
+        console.log(
+          `MISMATCH ${url} block ${i + 1}: differs at character ${at}: wanted ${JSON.stringify(want.slice(Math.max(0, at - 20), at + 30))}, got ${JSON.stringify(got.slice(Math.max(0, at - 20), at + 30))}`,
+        );
+      }
+    });
+  }
 }
 console.log(`fences: ${checked} code block(s) compared, ${bad} difference(s)`);
 process.exit(bad === 0 ? 0 : 1);

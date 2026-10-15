@@ -1,4 +1,4 @@
-// What `check --ci` says to GitHub Actions (section 4.1, "Output conventions"): workflow commands that
+// What `check --ci` says to GitHub Actions: workflow commands that
 // turn a problem into an annotation on the pull request, a job summary, and the step outputs. Plain
 // files and lines: nothing here reads the network or the repository.
 //
@@ -8,9 +8,8 @@
 // property), so that a message with a newline or a percent sign arrives whole.
 import { appendFileSync } from "node:fs";
 import { jxVersions } from "./jx.js";
-import { JX_FRAGMENT } from "./overrides.js";
-import { version } from "./package-info.js";
-import type { Manifest, Problem } from "./types.js";
+import { name as packageName, version } from "./package-info.js";
+import type { Problem } from "./types.js";
 
 const escapeData = (text: string): string =>
   text.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
@@ -76,10 +75,8 @@ export interface SummaryInput {
   /** The configured domain, when the configuration was read. */
   domain?: string;
   steps: SummaryStep[];
-  /** The `info` essentials, so that a red run can be read without a checkout. */
-  versions: { docusystem: string; runtime: string; jx: Record<string, string> };
-  catalog?: string;
-  overrides?: { shadowed: string[]; added: string[]; jx?: boolean };
+  /** What built the site, so that a red run can be read without a checkout. */
+  versions: { docs: string; runtime: string; jx: Record<string, string> };
   problems: Problem[];
 }
 
@@ -122,19 +119,9 @@ export function renderSummary(input: SummaryInput): string {
   }
 
   out.push("#### Build", "");
-  out.push(`- @avunu/docusystem ${input.versions.docusystem}, ${input.versions.runtime}`);
+  out.push(`- ${packageName} ${input.versions.docs}, ${input.versions.runtime}`);
   const jx = Object.entries(input.versions.jx).map(([pkg, installed]) => `${pkg} ${installed}`);
   if (jx.length > 0) out.push(`- ${jx.join(", ")}`);
-  if (input.catalog !== undefined) out.push(`- project catalog: ${input.catalog}`);
-  const overrides = input.overrides;
-  if (overrides !== undefined) {
-    const listed = [
-      ...overrides.shadowed.map((file) => `${file} (replaces the package's file)`),
-      ...overrides.added.map((file) => `${file} (added)`),
-      ...(overrides.jx === true ? [JX_FRAGMENT] : []),
-    ];
-    out.push(`- overrides: ${listed.length === 0 ? "none" : listed.join(", ")}`);
-  }
   out.push("");
   return out.join("\n");
 }
@@ -145,23 +132,13 @@ export function runtimeName(): string {
   return bun === undefined ? `node ${process.versions.node}` : `bun ${bun}`;
 }
 
-/**
- * The versions a summary (and `info`) states: the manifest of the build that just ran, or, when none
- * was written because the run stopped before assembling, what this process knows itself.
- */
-export function versionsOf(manifest?: Pick<Manifest, "docusystem" | "runtime" | "jx">): {
-  docusystem: string;
-  runtime: string;
-  jx: Record<string, string>;
-} {
-  if (manifest !== undefined) {
-    return { docusystem: manifest.docusystem, runtime: manifest.runtime, jx: manifest.jx };
-  }
+/** The versions a summary states: this repository, the runtime and the installed Jx packages. */
+export function versionsOf(): { docs: string; runtime: string; jx: Record<string, string> } {
   let jx: Record<string, string> = {};
   try {
     jx = jxVersions();
   } catch {
-    // The Jx packages are not installed where this package looks (a broken install): say less, not fail.
+    // The Jx packages are not installed where this repository looks (a broken install): say less, not fail.
   }
-  return { docusystem: version, runtime: runtimeName(), jx };
+  return { docs: version, runtime: runtimeName(), jx };
 }

@@ -2,7 +2,7 @@
 // called and where it is published. The rules mirror the `docs` content type in
 // site/project.base.json (exclude, where, route, indexRoute), because nav.ts writes the sidebar
 // before Jx loads the same files. Two checks keep the mirror honest: test/content/jx-agreement.test.ts
-// runs these functions and Jx's own over the same inputs, and the link crawl of `docusystem check`
+// runs these functions and Jx's own over the same inputs, and the link crawl of `check`
 // fails when a sidebar link is not a page.
 import { readdirSync, readFileSync } from "node:fs";
 import { join, sep } from "node:path";
@@ -116,12 +116,19 @@ export function readDocs(root: string): DocFile[] {
   return files;
 }
 
-/** The URL a file is published at: `route` for a page, `indexRoute` for a folder's README. */
-export function urlFor(file: Pick<DocFile, "dir" | "base" | "isIndex">): string {
+/**
+ * The URL a file is published at: `route` for a page, `indexRoute` for a folder's README. `prefix` is
+ * where the project's documentation starts (`/docs`, or `/frappe-nix/docs` when many projects share a
+ * site).
+ */
+export function urlFor(
+  file: Pick<DocFile, "dir" | "base" | "isIndex">,
+  prefix: string = DOCS_PREFIX,
+): string {
   const path = file.isIndex
     ? slugifyPath(file.dir)
     : slugifyPath(file.dir ? `${file.dir}/${file.base}` : file.base);
-  return `${DOCS_PREFIX}/${path ? `${path}/` : ""}`;
+  return `${prefix}/${path ? `${path}/` : ""}`;
 }
 
 const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");

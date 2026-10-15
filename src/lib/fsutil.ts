@@ -1,11 +1,10 @@
-// The file-system rules of docusystem, in one place so that every package obeys the same ones
-// (sections 4.1 and 1.5 of the architecture decision record):
+// The file-system rules of the build, in one place so that every module obeys the same ones:
 //
 //   Real bytes only.     What the build publishes are copies, never symbolic links. `copyFile` and
 //                        `replaceDir` never create a link and never write through one.
 //   Symlink policy.      `walkFiles` follows a symbolic link only when its real path lies inside the
 //                        repository and not inside `.git/`, `node_modules/` or the site's own
-//                        `.docusystem/` and `dist/`. Everything else is skipped and reported, so that a
+//                        `.site-docs/` and `dist/`. Everything else is skipped and reported, so that a
 //                        pull request cannot publish `/etc/passwd` or a token from `.git/config` by
 //                        committing a link.
 //   Deletion policy.     The CLI deletes only paths it computed from the site folder.
@@ -58,7 +57,7 @@ function lstatOrNull(path: string): Stats | null {
 const NEVER_PUBLISHED = new Map([
   [".git", "a symbolic link into .git"],
   ["node_modules", "a symbolic link into node_modules"],
-  [".docusystem", "a symbolic link into .docusystem"],
+  [".site-docs", "a symbolic link into .site-docs"],
 ]);
 
 /**
@@ -73,9 +72,9 @@ export interface WalkOptions {
   /** The repository root: nothing outside it is published. */
   repoRoot: string;
   /**
-   * The site folder (the one with docusystem.config.json). With it, the site's own `dist/` is also
+   * The workspace root (the one with projects.json). With it, the workspace's own `dist/` is also
    * refused; without it only the folders that are refused by name (`.git`, `node_modules`,
-   * `.docusystem`) are.
+   * `.site-docs`) are.
    */
   siteDir?: string;
   /** A lower limit than MAX_WALK_ENTRIES, for tests. */
@@ -91,13 +90,13 @@ export interface WalkOptions {
  * The policy of section 4.1:
  *
  * - A symbolic link is followed only when its real path lies inside `repoRoot` and not inside
- *   `.git/`, `node_modules/` or `.docusystem/` (at any depth, relative to the repository root) or the
+ *   `.git/`, `node_modules/` or `.site-docs/` (at any depth, relative to the repository root) or the
  *   site's `dist/`. Any other link is skipped and reported with its reason, and so is a link that does
  *   not resolve.
  * - Directory cycles are cut: a link to a folder that is being walked (one of its own ancestors, or
  *   itself) is skipped and reported. The set is the real paths of the folders on the way down, so the
  *   result does not depend on the order in which entries are read.
- * - Real folders named `.git`, `node_modules` or `.docusystem`, and the site's own `dist/`, are not
+ * - Real folders named `.git`, `node_modules` or `.site-docs`, and the site's own `dist/`, are not
  *   entered and not reported: they are never content (this matters when the Markdown folder is the
  *   repository root).
  * - Anything that is neither a file, a folder nor a link (a socket, a device) is skipped and reported.
@@ -223,7 +222,7 @@ export function walkFiles(dir: string, o: WalkOptions): WalkResult {
 /**
  * Makes sure `dir` is a real folder, creating it (and its parents) when it is absent. Throws when the
  * path is a symbolic link or a file: a folder that the CLI writes into and later deletes from
- * (`.docusystem/`, `dist/`) must be the CLI's own, never a link that a pull request committed to
+ * (`.site-docs/`, `dist/`) must be the CLI's own, never a link that a pull request committed to
  * point somewhere else.
  */
 export function ensureRealDir(dir: string): void {
@@ -231,7 +230,7 @@ export function ensureRealDir(dir: string): void {
   if (stat === null) {
     mkdirSync(dir, { recursive: true });
   } else if (stat.isSymbolicLink()) {
-    throw new Error(`${dir} is a symbolic link: docusystem only writes into real folders`);
+    throw new Error(`${dir} is a symbolic link: the build only writes into real folders`);
   } else if (!stat.isDirectory()) {
     throw new Error(`${dir} exists and is not a folder`);
   }
@@ -276,7 +275,7 @@ export function writeJson(file: string, value: unknown): void {
  * `parent/../x`), or when a folder between `parent` and `path` is a symbolic link, because the
  * removal would then reach somewhere `parent` does not own. `path` itself may be a link: the link is
  * removed, never what it points to. `parent` itself may be a link (a site folder can be one); a
- * folder that must not be one (`.docusystem/`) is checked with `ensureRealDir`.
+ * folder that must not be one (`.site-docs/`) is checked with `ensureRealDir`.
  */
 export function removeInside(path: string, parent: string): void {
   const target = resolve(path);

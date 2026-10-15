@@ -561,8 +561,8 @@
           "$ne": false
         }
       },
-      "route": "/docs/{id:slug}/",
-      "indexRoute": "/docs/{dir:slug}/",
+      "route": "/{id:slug}/",
+      "indexRoute": "/{dir:slug}/",
       "links": "warn",
       "alerts": {
         "NOTE": "docs-callout",
@@ -615,11 +615,11 @@
       }
     },
     "nav": {
-      "source": "./.generated/nav.json",
+      "source": "./.generated/nav",
       "format": "json"
     },
     "config": {
-      "source": "./docusystem.config.json",
+      "source": "./.generated/config",
       "format": "json"
     },
     "projects": {
@@ -631,7 +631,7 @@
     "output": "/search-index.json",
     "collections": {
       "docs": {
-        "basePath": "/docs/",
+        "basePath": "/",
         "boost": {
           "title": 4,
           "heading": 2

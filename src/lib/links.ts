@@ -1,4 +1,4 @@
-// The link crawl of `docusystem check` (step 16 of the pipeline, section 5.1) and the helpers that
+// The link crawl of `check` and the helpers that
 // the other output modules share (the pages of a built site, the address a file is served at, the
 // links a page holds). It reads every built page and proves that whatever links to something finds
 // it: pages, anchors, assets, search results and sidebar entries. Pure over a `dist/` folder, so the
@@ -183,9 +183,17 @@ function navUrls(nav: NavData): Set<string> {
 /**
  * Step 16: crawls a built site. Errors fail `check`; warnings are printed. With `nav` the sidebar is
  * crawled too: every entry must have been built, and every built documentation page must be in it
- * (docusystem computes the sidebar and Jx builds the pages, and the two must agree).
+ * (this repository computes the sidebar and Jx builds the pages, and the two must agree).
  */
-export function checkLinks(dist: string, options: { nav?: NavData } = {}): LinkReport {
+export function checkLinks(
+  dist: string,
+  options: {
+    nav?: NavData;
+    /** Where documentation starts: `/docs/`, or one prefix per project when many share the site. */
+    docsPrefixes?: readonly string[];
+  } = {},
+): LinkReport {
+  const prefixes = options.docsPrefixes ?? ["/docs/"];
   const report: LinkReport = { pages: 0, checked: 0, errors: [], warnings: [] };
   const pages = htmlPages(dist);
   report.pages = pages.length;
@@ -289,22 +297,27 @@ export function checkLinks(dist: string, options: { nav?: NavData } = {}): LinkR
       if (!fileFor(dist, url)?.exact)
         err(
           "(sidebar)",
-          `the sidebar links to ${url}, which was not built (the address docusystem computed for the page is not the one Jx published)`,
+          `the sidebar links to ${url}, which was not built (the address the build computed for the page is not the one Jx published)`,
         );
     }
     for (const file of pages) {
       const route = routeOfFile(dist, file);
-      if (route.startsWith("/docs/") && !Object.hasOwn(options.nav.pages, route))
+      if (
+        prefixes.some((prefix) => route.startsWith(prefix)) &&
+        !Object.hasOwn(options.nav.pages, route)
+      )
         err(
           route,
-          "was built but is not in the sidebar data (the address docusystem computed for the page is not the one Jx published)",
+          "was built but is not in the sidebar data (the address the build computed for the page is not the one Jx published)",
         );
     }
-    if (!existsSync(join(dist, "docs", "index.html")))
-      err(
-        "/docs/",
-        "the documentation home was not built: docs/README.md is missing or unpublished",
-      );
+    for (const prefix of prefixes) {
+      if (!existsSync(join(dist, ...prefix.split("/").filter(Boolean), "index.html")))
+        err(
+          prefix,
+          "the documentation home was not built: docs/README.md is missing or unpublished",
+        );
+    }
   }
   return report;
 }

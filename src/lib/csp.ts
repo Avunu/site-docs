@@ -7,9 +7,8 @@
 //     somebody wrote into the Markdown are all refused by the browser, whatever slipped past the lint;
 //   - nothing is embedded (`frame-src`, `object-src`), the base address cannot be changed
 //     (`base-uri`) and no form can be sent anywhere (`form-action`);
-//   - the page talks only to itself and to the project catalog of avunu.net (the project switcher), and
-//     loads fonts from itself and images from itself and from any https site (a page may show the
-//     badge of its repository).
+//   - the page talks only to itself (the search index) and loads fonts from itself and images from
+//     itself and from any https site (a page may show the badge of its repository).
 // Styles keep `'unsafe-inline'`: the pages carry `<style>` blocks. A `<meta>` policy cannot set
 // `frame-ancestors`, which GitHub Pages cannot send as a header either.
 //
@@ -19,10 +18,7 @@ import { createHash } from "node:crypto";
 import { type Tag, tokens } from "./html-policy.js";
 
 /** Marks the meta this module wrote, so that running the step again replaces it. */
-const MARKER = "data-docusystem-csp";
-
-/** The origin that the project switcher fetches the live catalog from. */
-const CATALOG_ORIGIN = "https://avunu.net";
+const MARKER = "data-docs-csp";
 
 const attribute = (tag: Tag, name: string): string | undefined =>
   tag.attributes.find((a) => a.name === name)?.value;
@@ -57,7 +53,7 @@ export function policyFor(scripts: string[]): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https:",
     "font-src 'self'",
-    `connect-src 'self' ${CATALOG_ORIGIN}`,
+    "connect-src 'self'",
     "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'none'",

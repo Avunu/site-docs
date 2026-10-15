@@ -2,11 +2,11 @@
 # Windows checkout (Git for Windows ships core.autocrlf=true, and the windows-latest runner uses it) turns
 # every line ending into CRLF, and the tests that compare a file with a string written in a test, with the
 # bytes of a starter template, with the output of the formatter or with a byte offset fail for that reason
-# alone. The scaffold and site/ are copied into projects and published, so they must be LF as well.
+# alone. site/ is copied into the published site, so it must be LF as well.
 * text=auto eol=lf
 
-# Bytes, never converted, never diffed as text. `text=auto` already detects these, and the fixtures that
-# compare a copy with its original byte for byte (test/site/starter.test.ts) must never depend on a guess.
+# Bytes, never converted, never diffed as text. `text=auto` already detects these, and tests that compare
+# a copy with its original byte for byte must never depend on a guess.
 *.woff2 binary
 *.woff binary
 *.ico binary
