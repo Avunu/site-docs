@@ -352,19 +352,19 @@ describe("bump.yml", () => {
     expect(step.run).toContain('--json "$RUNNER_TEMP/bump.json" --summary "$RUNNER_TEMP/bump.md"');
   });
 
-  test("pushes with BUMP_TOKEN when it is set and GITHUB_TOKEN when it is not, never both at once", () => {
+  test("pushes with DOCS_BUMP_TOKEN when it is set and GITHUB_TOKEN when it is not, never both at once", () => {
     for (const name of [
       "Push the branch and open or update the pull request",
       "Close the pull request when nothing is left to bump",
     ]) {
       expect(stepNamed(job?.steps, name).env?.GH_TOKEN, name).toBe(
-        "${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}",
+        "${{ secrets.DOCS_BUMP_TOKEN || secrets.GITHUB_TOKEN }}",
       );
     }
     expect(
       stepNamed(job?.steps, "Push the branch and open or update the pull request").env?.OWN_TOKEN,
-    ).toBe("${{ secrets.BUMP_TOKEN != '' }}");
-    expect(bump.text.match(/secrets\.BUMP_TOKEN \|\| secrets\.GITHUB_TOKEN/g)).toHaveLength(2);
+    ).toBe("${{ secrets.DOCS_BUMP_TOKEN != '' }}");
+    expect(bump.text.match(/secrets\.DOCS_BUMP_TOKEN \|\| secrets\.GITHUB_TOKEN/g)).toHaveLength(2);
   });
 
   test("the title and the branch are the ones the brief names, and the PR is updated through REST", () => {
@@ -536,7 +536,7 @@ exit 0`,
         expect(log).toContain("gh pr merge 7 --auto --squash");
       });
 
-      test("with BUMP_TOKEN the pull request starts CI itself: ci.yml is not dispatched, and no notice is raised", () => {
+      test("with DOCS_BUMP_TOKEN the pull request starts CI itself: ci.yml is not dispatched, and no notice is raised", () => {
         const box = sandbox();
         const result = pushStep(box, { OWN_TOKEN: "true", FAKE_PR_AFTER: "42" });
         expect(box.log()).not.toContain("gh workflow run");
@@ -547,7 +547,7 @@ exit 0`,
         const box = sandbox();
         const result = pushStep(box, { OWN_TOKEN: "false", FAKE_PR_AFTER: "42" });
         expect(box.log()).toContain("gh workflow run ci.yml --ref bump/projects");
-        expect(result.out).toContain("::notice title=BUMP_TOKEN::BUMP_TOKEN is not set");
+        expect(result.out).toContain("::notice title=DOCS_BUMP_TOKEN::DOCS_BUMP_TOKEN is not set");
         expect(result.out).toContain("deploy.yml must be run by hand");
       });
 
@@ -648,13 +648,13 @@ console.log("ARGS " + args.join(" "));
 describe("check-docs.yml", () => {
   const job = check.doc.jobs.check;
 
-  test("is a reusable workflow with a required `path` and a `ref` that defaults to main, and no secrets", () => {
+  test("is a reusable workflow with a required `path` and an optional `ref` override, and no secrets", () => {
     expect(Object.keys(check.doc.on)).toEqual(["workflow_call"]);
     const call = check.doc.on.workflow_call as { inputs: Record<string, Record<string, unknown>> };
     expect(Object.keys(call)).toEqual(["inputs"]);
     expect(Object.keys(call.inputs)).toEqual(["path", "ref"]);
     expect(call.inputs.path).toMatchObject({ required: true, type: "string" });
-    expect(call.inputs.ref).toMatchObject({ required: false, type: "string", default: "main" });
+    expect(call.inputs.ref).toMatchObject({ required: false, type: "string", default: "" });
     expect(check.text).not.toMatch(/secrets\./);
     expect(check.doc.permissions).toEqual({});
   });
@@ -665,14 +665,14 @@ describe("check-docs.yml", () => {
     expect(job?.permissions).toEqual({ contents: "read" });
   });
 
-  test("checks out this repository at `ref` and the caller's pull request beside it, both without credentials", () => {
+  test("checks out this repository at the revision found (its own commit unless `ref` is given) and the caller's pull request beside it, both without credentials", () => {
     const checkouts = (job?.steps ?? []).filter((step) =>
       step.uses?.startsWith("actions/checkout@"),
     );
     expect(checkouts.map((step) => step.with)).toEqual([
       {
         repository: "${{ env.WORKSPACE_REPOSITORY }}",
-        ref: "${{ inputs.ref }}",
+        ref: "${{ steps.rev.outputs.ref }}",
         path: "workspace",
         "fetch-depth": 1,
         "persist-credentials": false,
@@ -714,6 +714,42 @@ describe("check-docs.yml", () => {
 
   describe.skipIf(!hasBash || isWindows)("its shell steps, run for real", () => {
     const inputsStep = runOf(check, "check", "Check the inputs");
+
+    describe("finding the revision of the tool", () => {
+      const rev = stepNamed(job?.steps, "Find the revision of the tool");
+      const found = (given: string, own: string) => {
+        const dir = tempDir();
+        const output = join(dir, "output");
+        writeFileSync(output, "");
+        const result = bash(rev.run ?? "", dir, {
+          GIVEN: given,
+          OWN: own,
+          GITHUB_OUTPUT: output,
+        });
+        return { code: result.code, output: readFileSync(output, "utf8") };
+      };
+
+      test("reads the commit of this workflow file from job.workflow_sha, not the caller's github.sha", () => {
+        expect(rev.env).toEqual({
+          GIVEN: "${{ inputs.ref }}",
+          OWN: "${{ job.workflow_sha }}",
+        });
+        const lines = check.text.split("\n").filter((line) => !line.trim().startsWith("#"));
+        expect(lines.join("\n")).not.toMatch(/github\.sha|github\.workflow_sha/);
+      });
+
+      test("uses the commit the caller pinned when no `ref` is given", () => {
+        const sha = "0123456789abcdef0123456789abcdef01234567";
+        expect(found("", sha)).toEqual({ code: 0, output: `ref=${sha}\n` });
+      });
+
+      test("lets a given `ref` win, and leaves the value empty (which the next step refuses) when neither exists", () => {
+        expect(found("feat/x", "0123456789abcdef0123456789abcdef01234567").output).toBe(
+          "ref=feat/x\n",
+        );
+        expect(found("", "").output).toBe("ref=\n");
+      });
+    });
 
     test.each([
       ["frappe-nix", "main"],

@@ -7,7 +7,7 @@ name: Docs site
 #
 # Starts on a push to the default branch that can change the site, and by hand. A bump of a project is
 # such a push: the `Bump projects` workflow (bump.yml) proposes it, a pull request merges it. A merge made
-# with the default GITHUB_TOKEN starts no workflow (a GitHub rule), so the maintainer's BUMP_TOKEN is what
+# with the default GITHUB_TOKEN starts no workflow (a GitHub rule), so the maintainer's DOCS_BUMP_TOKEN is what
 # makes this run by itself after a bump; without it, run this workflow by hand after the merge.
 #
 # The build job holds a read-only token and no secret; it is also the job whose output is published. The
@@ -61,7 +61,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false # a restored cache is an input to a build that is about to be deployed

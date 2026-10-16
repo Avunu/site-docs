@@ -80,7 +80,7 @@ The build parses `Done: N routes` from Jx and expects the number of pages of eve
 
 ## A project's own check is green but the site build is red
 
-The project's `docs.yml` checks its documentation with the other projects at the commits pinned in this repository at the commit its `ref` names. The site build uses the pointers of the bump pull request, so it can fail when a bump moves a project that another project links to, or when this repository's tool changed. The failing step in the log names the page. The fix belongs in the project whose page it is: see [operations](../maintainers/operations.md#when-a-bump-pull-request-fails).
+The project's `docs.yml` checks its documentation with the other projects at the commits pinned in this repository at the commit its `uses:` pins. The site build uses the pointers of the bump pull request, so it can fail when a bump moves a project that another project links to, or when this repository's tool changed. The failing step in the log names the page. The fix belongs in the project whose page it is: see [operations](../maintainers/operations.md#when-a-bump-pull-request-fails).
 
 ## A change to `docs/` is not on the site
 
