@@ -1,0 +1,9 @@
+# Read by actionlint from this path. One exception, for one message in one file.
+paths:
+  .github/workflows/check-docs.yml:
+    ignore:
+      # GitHub documents `job.workflow_sha` ("the commit SHA of the workflow file that defines the current
+      # job"; in a called workflow, the commit of the called file), which is how check-docs.yml knows the
+      # commit its caller pinned. actionlint's type of the `job` context does not list it yet. Remove this
+      # rule when the pinned actionlint does.
+      - 'property "workflow_sha" is not defined in object type'

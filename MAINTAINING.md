@@ -14,7 +14,7 @@ A maintainer's checklist for `docs.avunu.net`. The details are in the documentat
 
 Everything in the repository is a pull request. These are not files, so a person makes them in GitHub's settings or at the DNS host, and no pull request can:
 
-1. **`BUMP_TOKEN`**, a repository secret limited to this repository (Contents, Pull requests and Actions: read and write). Without it bump pull requests start no CI by themselves and merging one does not deploy.
+1. **`DOCS_BUMP_TOKEN`**, a secret (a repository secret, or an organization secret granted to this repository only) holding a token limited to this repository (Contents, Pull requests and Actions: read and write). Without it bump pull requests start no CI by themselves and merging one does not deploy.
 2. **GitHub Pages**: source GitHub Actions, custom domain `docs.avunu.net`, Enforce HTTPS.
 3. **DNS**: `docs.avunu.net. CNAME avunu.github.io.`
 4. **`DOCS_SITE_ENABLED`**, a repository variable set to `true` once 2 and 3 are done. Until then the site is built and checked, never published.

@@ -14,13 +14,13 @@ name: Bump projects
 # scheduled run adds the others again. When a run finds nothing left to bump and no lookup failed, the
 # open bump pull request is closed (it has nothing left to merge).
 #
-# The token. Set the secret BUMP_TOKEN (a fine-grained personal access token or a GitHub App token, for
+# The token. Set the secret DOCS_BUMP_TOKEN (a fine-grained personal access token or a GitHub App token, for
 # THIS repository only, with Contents: write, Pull requests: write and Actions: write). Without it the run
 # falls back to GITHUB_TOKEN and says so, with two limits GitHub imposes on that token: a pull request it
 # opens starts no pull request workflows, so ci.yml is dispatched on the branch instead (a dispatched run
 # reports its checks on the branch head), and the merge
 # GitHub performs for auto-merge starts no push workflow, so deploy.yml does not run by itself after a
-# bump: run it by hand. BUMP_TOKEN has neither limit, so with it ci.yml starts from the pull request itself
+# bump: run it by hand. DOCS_BUMP_TOKEN has neither limit, so with it ci.yml starts from the pull request itself
 # and is not dispatched a second time.
 #
 # Auto-merge needs the repository setting "Allow auto-merge" and a rule on the default branch that
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write # push the branch bump/projects (the fallback token; BUMP_TOKEN has its own scopes)
+      contents: write # push the branch bump/projects (the fallback token; DOCS_BUMP_TOKEN has its own scopes)
       pull-requests: write # open, update and close the pull request, turn on auto-merge
       actions: write # dispatch ci.yml on the branch when the pull request was opened with GITHUB_TOKEN
     env:
@@ -68,7 +68,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false
@@ -98,9 +98,9 @@ jobs:
       - name: Push the branch and open or update the pull request
         if: ${{ steps.resolve.outputs.count != '0' }}
         env:
-          GH_TOKEN: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DOCS_BUMP_TOKEN || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          OWN_TOKEN: ${{ secrets.BUMP_TOKEN != '' }}
+          OWN_TOKEN: ${{ secrets.DOCS_BUMP_TOKEN != '' }}
         run: |
           set -o pipefail
           report="$RUNNER_TEMP/bump.json"
@@ -108,7 +108,7 @@ jobs:
           title="chore(docs): bump $count project(s)"
 
           if [ "$OWN_TOKEN" != "true" ]; then
-            echo "::notice title=BUMP_TOKEN::BUMP_TOKEN is not set, so GITHUB_TOKEN is used. The pull request will start no workflow by itself: ci.yml is dispatched on the branch instead, and deploy.yml must be run by hand after the merge. Add the secret to avoid both (see the operations guide)."
+            echo "::notice title=DOCS_BUMP_TOKEN::DOCS_BUMP_TOKEN is not set, so GITHUB_TOKEN is used. The pull request will start no workflow by itself: ci.yml is dispatched on the branch instead, and deploy.yml must be run by hand after the merge. Add the secret to avoid both (see the operations guide)."
           fi
 
           if git diff --cached --quiet -- projects; then
@@ -156,7 +156,7 @@ jobs:
           fi
 
           # A pull request opened with GITHUB_TOKEN starts no pull_request workflows; a dispatched run does
-          # start, and its checks attach to the branch head. With BUMP_TOKEN the pull request starts its own.
+          # start, and its checks attach to the branch head. With DOCS_BUMP_TOKEN the pull request starts its own.
           if [ "$OWN_TOKEN" != "true" ]; then
             gh workflow run ci.yml --ref "$BRANCH"
           fi
@@ -165,7 +165,7 @@ jobs:
       - name: Close the pull request when nothing is left to bump
         if: ${{ steps.resolve.outputs.count == '0' && steps.resolve.outputs.skipped == '0' && inputs.project == '' }}
         env:
-          GH_TOKEN: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DOCS_BUMP_TOKEN || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           number="$(gh pr list --head "$BRANCH" --base "$DEFAULT_BRANCH" --state open --json number --jq '.[0].number // empty')"
