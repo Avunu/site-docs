@@ -25,9 +25,9 @@
     "docs:check": "node build/cli.js check"
   },
   "dependencies": {
-    "@jxsuite/compiler": "5.0.0",
-    "@jxsuite/parser": "2.0.0",
-    "@jxsuite/runtime": "4.0.3",
+    "@jxsuite/compiler": "5.1.2",
+    "@jxsuite/parser": "2.0.1",
+    "@jxsuite/runtime": "4.1.0",
     "@jxsuite/search": "0.4.0",
     "yaml": "2.9.1"
   },
