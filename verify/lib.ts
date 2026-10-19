@@ -68,7 +68,9 @@ export function chromeBin(): string {
 }
 
 export async function launch(): Promise<Browser> {
-  return chromium.launch({ executablePath: chromeBin(), args: ["--no-sandbox"] });
+  // --no-zygote: the zygote calls capset(2), which hardened CI services (the NixOS
+  // github-runner unit) refuse, and every page then crashes. Unsandboxed, it does nothing.
+  return chromium.launch({ executablePath: chromeBin(), args: ["--no-sandbox", "--no-zygote"] });
 }
 
 /** The text of the bundled project catalog the site was built with. */
