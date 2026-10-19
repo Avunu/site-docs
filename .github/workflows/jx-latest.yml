@@ -20,7 +20,7 @@ concurrency:
 jobs:
   canary:
     name: Integration tests and the site with the latest Jx
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 20
     permissions:
       contents: read # checkout
@@ -71,7 +71,7 @@ jobs:
     name: Open or update the issue
     needs: canary
     if: ${{ always() && needs.canary.result != 'skipped' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 5
     permissions:
       issues: write # open or comment on the issue

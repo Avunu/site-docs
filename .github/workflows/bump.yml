@@ -49,7 +49,7 @@ concurrency:
 jobs:
   bump:
     name: Bump the submodules
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 15
     permissions:
       contents: write # push the branch bump/projects (the fallback token; DOCS_BUMP_TOKEN has its own scopes)

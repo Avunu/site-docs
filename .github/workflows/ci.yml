@@ -27,7 +27,7 @@ concurrency:
 jobs:
   check:
     name: Format, lint, types, tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 20
     permissions:
       contents: read # checkout
@@ -87,7 +87,7 @@ jobs:
   # is no pixel diff.
   verify:
     name: Accessibility and behaviour in Chrome
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 30
     permissions:
       contents: read # checkout
@@ -113,6 +113,9 @@ jobs:
       - name: Install the browser suites
         working-directory: verify
         run: bun install --frozen-lockfile
+      - name: Use Chromium from Nix on the self-hosted runner
+        if: ${{ runner.environment == 'self-hosted' }}
+        run: echo "CHROME_BIN=$(nix build --no-link --print-out-paths nixpkgs#chromium)/bin/chromium" >> "$GITHUB_ENV"
       - name: Build the fixture workspace and run every suite
         working-directory: verify
         run: bun run.ts --out "$RUNNER_TEMP/verify"
@@ -127,7 +130,7 @@ jobs:
 
   workflows:
     name: Workflow lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 10
     permissions:
       contents: read # checkout, and zizmor's online audits read public repositories
@@ -160,7 +163,7 @@ jobs:
   pr-title:
     name: Pull request title
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 5
     permissions:
       contents: read # checkout
@@ -190,7 +193,7 @@ jobs:
   # points at is content for the build to read, never code that runs.
   workspace:
     name: Workspace build
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 30
     permissions:
       contents: read # checkout; the submodules are public
@@ -245,7 +248,7 @@ jobs:
     name: ci
     if: ${{ always() }}
     needs: [check, verify, workflows, pr-title, workspace]
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
     timeout-minutes: 5
     permissions: {}
     steps:
