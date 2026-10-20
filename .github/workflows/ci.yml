@@ -87,8 +87,9 @@ jobs:
   # is no pixel diff.
   verify:
     name: Accessibility and behaviour in Chrome
-    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
-    timeout-minutes: 60  # ~6 min hosted; the shared self-hosted host can be 5x slower under load
+    # Hosted on purpose: on the shared self-hosted host, page loads under load pass the 30 s timeout.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read # checkout
     steps:
