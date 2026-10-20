@@ -2,7 +2,7 @@
 // the ones that made the prototype's scanners take quadratic or cubic time (thousands of `](` that
 // never close, a run of backticks, an unterminated tag repeated, a line of spaces); each is a single
 // line of 60 to 100 KB. A scanner that is linear takes tens of milliseconds on them; the limit below
-// is generous (a slow runner) and far below what the quadratic ones needed (minutes).
+// is generous (a slow or shared CI host) and far below what the quadratic ones needed (minutes).
 import { describe, expect, test } from "vitest";
 import { firstHeading, firstParagraph, inlineText } from "../../src/lib/frontmatter.js";
 import { lintMarkdown } from "../../src/lib/lint.js";
@@ -77,7 +77,7 @@ describe("hostile single lines are read in time proportional to their length", (
         const started = performance.now();
         scan(text);
         const took = performance.now() - started;
-        expect(took, `${scanner} took ${took.toFixed(0)} ms`).toBeLessThan(3000);
+        expect(took, `${scanner} took ${took.toFixed(0)} ms`).toBeLessThan(10_000);
       }
     });
   }

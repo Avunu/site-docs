@@ -19,6 +19,8 @@ export default defineConfig({
             "test/e2e/**",
             "test/**/fixtures/**",
           ],
+          // Some unit tests run real git; on a busy shared CI host they pass 5 s.
+          testTimeout: 30_000,
         },
       },
       {
