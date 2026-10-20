@@ -29,11 +29,11 @@
     },
     {
       "path": "carbon-theme",
-      "slug": "carbon_frappe",
-      "name": "Carbon Frappe",
+      "slug": "carbon_theme",
+      "name": "Carbon Theme",
       "tagline": "A complete IBM Carbon Design System theme for Frappe and ERPNext, covering the desk, website, login, email, charts, and tables.",
       "platform": "frappe",
-      "repo": "https://github.com/Avunu/carbon_frappe",
+      "repo": "https://github.com/Avunu/carbon_theme",
       "license": "MIT",
       "branch": "develop",
       "docs": "docs"
@@ -62,13 +62,24 @@
     },
     {
       "path": "data-steward",
-      "slug": "jailbreak",
-      "name": "Jailbreak",
-      "tagline": "Power-user tools for Frappe and ERPNext admins, including bulk merge, item-to-variant conversion, and version restore, each gated behind a setting.",
+      "slug": "data_steward",
+      "name": "Data Steward",
+      "tagline": "Audited data corrections for Frappe and ERPNext admins, including bulk merge, item-to-variant conversion, and bank clearance fixes, each gated behind a setting.",
       "platform": "frappe",
-      "repo": "https://github.com/Avunu/jailbreak",
+      "repo": "https://github.com/Avunu/data_steward",
       "license": "MIT",
       "branch": "develop",
+      "docs": "docs"
+    },
+    {
+      "path": "employee-timeclock",
+      "slug": "employee_timeclock",
+      "name": "Employee Timeclock",
+      "tagline": "Badge-scan timeclock kiosks for ERPNext and HRMS, with a daily punch record per employee and job-card time tracking for the shop floor.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/employee_timeclock",
+      "license": "MIT",
+      "branch": "main",
       "docs": "docs"
     },
     {
@@ -95,11 +106,11 @@
     },
     {
       "path": "esign-webforms",
-      "slug": "esign",
-      "name": "eSign",
+      "slug": "esign_webforms",
+      "name": "eSign Web Forms",
       "tagline": "Collect electronic signatures on any Frappe or ERPNext document through web forms, with signed PDFs and a full audit trail.",
       "platform": "frappe",
-      "repo": "https://github.com/Avunu/esign",
+      "repo": "https://github.com/Avunu/esign_webforms",
       "license": "MIT",
       "branch": "develop",
       "docs": "docs"
@@ -116,12 +127,23 @@
       "docs": "docs"
     },
     {
+      "path": "jwt-bearer-auth",
+      "slug": "jwt_bearer_auth",
+      "name": "JWT Bearer Auth",
+      "tagline": "Single sign-on for Frappe and ERPNext from an identity provider's JWT, such as Cloudflare Access, with automatic login and optional user registration.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/jwt_bearer_auth",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
+    },
+    {
       "path": "mercury-banking-integration",
-      "slug": "mercury_integration",
-      "name": "Mercury Integration",
+      "slug": "mercury_banking_integration",
+      "name": "Mercury Banking Integration",
       "tagline": "Connects ERPNext to Mercury bank for client billing, payroll and vendor ACH, bank sync, reconciliation, and GL-coded journal entries.",
       "platform": "frappe",
-      "repo": "https://github.com/Avunu/mercury_integration",
+      "repo": "https://github.com/Avunu/mercury_banking_integration",
       "license": "MIT",
       "branch": "main",
       "docs": "docs"
@@ -172,11 +194,11 @@
     },
     {
       "path": "postgrid-direct-mail",
-      "slug": "postgrid_integration",
-      "name": "PostGrid Integration",
+      "slug": "postgrid_direct_mail",
+      "name": "PostGrid Direct Mail",
       "tagline": "Mail printed Frappe and ERPNext documents as physical letters through PostGrid, by hand or automatically from Notifications.",
       "platform": "frappe",
-      "repo": "https://github.com/Avunu/postgrid_integration",
+      "repo": "https://github.com/Avunu/postgrid_direct_mail",
       "license": "MIT",
       "branch": "develop",
       "docs": "docs"
@@ -192,6 +214,17 @@
       "branch": "main",
       "docs": "docs",
       "local": true
+    },
+    {
+      "path": "ui-text-editor",
+      "slug": "ui_text_editor",
+      "name": "UI Text Editor",
+      "tagline": "Replaces the Quill editor behind every Text Editor field in the Frappe desk with the frappe-ui editor, keeping saved values compatible.",
+      "platform": "frappe",
+      "repo": "https://github.com/Avunu/ui_text_editor",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
     },
     {
       "path": "web-kiosk",
