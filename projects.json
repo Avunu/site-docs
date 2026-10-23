@@ -204,6 +204,17 @@
       "docs": "docs"
     },
     {
+      "path": "python-devops-nix",
+      "slug": "python-devops-nix",
+      "name": "python-devops-nix",
+      "tagline": "The shared Nix base for frappe-nix and odoo-nix: secrets, backups, devguard, Python environments, development-shell pieces, NixOS production pieces and the conventions both products follow.",
+      "platform": "nixos",
+      "repo": "https://github.com/Avunu/python-devops-nix",
+      "license": "MIT",
+      "branch": "main",
+      "docs": "docs"
+    },
+    {
       "path": "site-docs",
       "slug": "site-docs",
       "name": "site-docs",

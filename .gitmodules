@@ -118,3 +118,8 @@
 	url = https://github.com/Avunu/wp-cloud-files.git
 	branch = main
 	shallow = true
+[submodule "projects/python-devops-nix"]
+	path = projects/python-devops-nix
+	url = https://github.com/Avunu/python-devops-nix.git
+	branch = main
+	shallow = true
