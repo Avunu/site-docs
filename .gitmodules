@@ -10,7 +10,7 @@
 	shallow = true
 [submodule "projects/carbon-theme"]
 	path = projects/carbon-theme
-	url = https://github.com/Avunu/carbon_frappe.git
+	url = https://github.com/Avunu/carbon_theme.git
 	branch = develop
 	shallow = true
 [submodule "projects/cloudflare-email"]
@@ -25,8 +25,13 @@
 	shallow = true
 [submodule "projects/data-steward"]
 	path = projects/data-steward
-	url = https://github.com/Avunu/jailbreak.git
+	url = https://github.com/Avunu/data_steward.git
 	branch = develop
+	shallow = true
+[submodule "projects/employee-timeclock"]
+	path = projects/employee-timeclock
+	url = https://github.com/Avunu/employee_timeclock.git
+	branch = main
 	shallow = true
 [submodule "projects/erpnext-cis-plus"]
 	path = projects/erpnext-cis-plus
@@ -40,7 +45,7 @@
 	shallow = true
 [submodule "projects/esign-webforms"]
 	path = projects/esign-webforms
-	url = https://github.com/Avunu/esign.git
+	url = https://github.com/Avunu/esign_webforms.git
 	branch = develop
 	shallow = true
 [submodule "projects/frappe-nix"]
@@ -48,9 +53,14 @@
 	url = https://github.com/Avunu/frappe-nix.git
 	branch = main
 	shallow = true
+[submodule "projects/jwt-bearer-auth"]
+	path = projects/jwt-bearer-auth
+	url = https://github.com/Avunu/jwt_bearer_auth.git
+	branch = develop
+	shallow = true
 [submodule "projects/mercury-banking-integration"]
 	path = projects/mercury-banking-integration
-	url = https://github.com/Avunu/mercury_integration.git
+	url = https://github.com/Avunu/mercury_banking_integration.git
 	branch = main
 	shallow = true
 [submodule "projects/messaging"]
@@ -75,7 +85,12 @@
 	shallow = true
 [submodule "projects/postgrid-direct-mail"]
 	path = projects/postgrid-direct-mail
-	url = https://github.com/Avunu/postgrid_integration.git
+	url = https://github.com/Avunu/postgrid_direct_mail.git
+	branch = develop
+	shallow = true
+[submodule "projects/ui-text-editor"]
+	path = projects/ui-text-editor
+	url = https://github.com/Avunu/ui_text_editor.git
 	branch = develop
 	shallow = true
 [submodule "projects/web-kiosk"]
