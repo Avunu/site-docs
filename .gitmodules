@@ -123,3 +123,8 @@
 	url = https://github.com/Avunu/python-devops-nix.git
 	branch = main
 	shallow = true
+[submodule "projects/nixos-router"]
+	path = projects/nixos-router
+	url = https://github.com/Avunu/nixos-router.git
+	branch = develop
+	shallow = true

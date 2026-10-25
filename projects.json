@@ -182,6 +182,17 @@
       "docs": "docs"
     },
     {
+      "path": "nixos-router",
+      "slug": "nixos-router",
+      "name": "nixos-router",
+      "tagline": "A small-business router you configure in a browser and rebuild like code.",
+      "platform": "nixos",
+      "repo": "https://github.com/Avunu/nixos-router",
+      "license": "MIT",
+      "branch": "develop",
+      "docs": "docs"
+    },
+    {
       "path": "odoo-nix",
       "slug": "odoo-nix",
       "name": "odoo-nix",
