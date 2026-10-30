@@ -1,7 +1,8 @@
 // The Content-Security-Policy of the pages, in a real browser, from both sides:
 //
-//   1. nothing the site does is blocked by it: on every page, searching, switching projects, the theme
-//      toggle, the drawer and the code-copy buttons run without a single violation or script error
+//   1. nothing the site does is blocked by it: on every page, searching (every project from the site's
+//      own pages, one project from that project's pages), switching projects, the theme toggle, the
+//      drawer and the code-copy buttons run without a single violation or script error
 //      (search loads its index from the page's own origin; the policy allows no other connection);
 //   2. what it exists for is blocked: markup injected into a built page (an event handler, a
 //      javascript: link, an inline script, a script from another site, a frame, a form, a new <base>)
@@ -68,17 +69,38 @@ async function record(page: Page): Promise<{ violations: () => Promise<string[]>
     "the scripts of every page ran: each code block has its copy button",
     `${codeBlocks} blocks, ${copyButtons} buttons`,
   );
+  /** Searches from a page; the projects (first path segments) of the results, in order. */
+  const searchFrom = async (route: string, query: string): Promise<string[]> => {
+    await page.goto(`${origin}${route}`, { waitUntil: "networkidle" });
+    await page.locator("docs-search button[data-variant]").first().click();
+    await page.waitForTimeout(500);
+    await page.keyboard.type(query, { delay: 20 });
+    await page
+      .waitForSelector("#site-search-listbox [role=option]", { timeout: 5000 })
+      .catch(() => {});
+    const hrefs = await page
+      .locator("#site-search-listbox [role=option]")
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute("href") ?? ""));
+    await page.keyboard.press("Escape");
+    return hrefs.map((href) => href.split("/")[1] ?? "");
+  };
+  // Both projects of the fixture have an install page.
+  const fromSite = await searchFrom("/", "install");
+  check(fromSite.length > 0, "search finds pages (its index is fetched from the site itself)", `${fromSite.length}`);
+  check(
+    new Set(fromSite).size > 1,
+    "on the site's own pages, search finds the pages of every project",
+    JSON.stringify([...new Set(fromSite)]),
+  );
+  const home = docsHome(dist);
+  const project = home.split("/")[1]!;
+  const fromProject = await searchFrom(home, "install");
+  check(
+    fromProject.length > 0 && fromProject.every((p) => p === project),
+    `on a page of ${project}, search finds the pages of ${project} only`,
+    JSON.stringify(fromProject),
+  );
   await page.goto(`${origin}/`, { waitUntil: "networkidle" });
-  const search = page.locator("docs-search button[data-variant]").first();
-  await search.click();
-  await page.waitForTimeout(500);
-  await page.keyboard.type("install", { delay: 20 });
-  await page
-    .waitForSelector("#site-search-listbox [role=option]", { timeout: 5000 })
-    .catch(() => {});
-  const hits = await page.locator("#site-search-listbox [role=option]").count();
-  check(hits > 0, "search finds pages (its index is fetched from the site itself)", `${hits}`);
-  await page.keyboard.press("Escape");
   const before = await page.evaluate(() => document.documentElement.getAttribute("data-color-scheme"));
   await page.locator("theme-toggle button").first().click();
   const after = await page.evaluate(() => document.documentElement.getAttribute("data-color-scheme"));

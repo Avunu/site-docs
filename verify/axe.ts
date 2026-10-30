@@ -34,13 +34,20 @@ const routes = routeArgs.length > 0 ? routeArgs : routesOf(dist);
 const server = serve(dist);
 const browser = await launch();
 
-/** A word that is in the search index, so the palette has results. */
-async function queryWord(): Promise<string> {
+/**
+ * A word from a page the palette at `route` can find, so it has results. A project's pages search
+ * only that project (`searchScope`, the project's `/<project>/docs/`), so the word comes from the
+ * documents under the route's first segment when there are any, else from the whole index.
+ */
+async function queryWord(route: string): Promise<string> {
   try {
     const index = JSON.parse(await Bun.file(join(dist, "search-index.json")).text()) as {
-      documents?: Array<{ title?: string }>;
+      documents?: Array<{ title?: string; url?: string }>;
     };
-    const words = (index.documents ?? []).flatMap(
+    const documents = index.documents ?? [];
+    const segment = route.split("/")[1] ?? "";
+    const own = segment ? documents.filter((d) => d.url?.startsWith(`/${segment}/`)) : [];
+    const words = (own.length > 0 ? own : documents).flatMap(
       (d) => (d.title ?? "").match(/[A-Za-z]{5,}/g) ?? [],
     );
     return words[0] ?? "documentation";
@@ -48,7 +55,6 @@ async function queryWord(): Promise<string> {
     return "documentation";
   }
 }
-const query = await queryWord();
 const preferred = [docsHome(dist), defaultDocsRoute(dist)].filter((r) => routes.includes(r));
 const overlayRoutes =
   preferred.length > 0 ? preferred : routes.filter((r) => isDocsRoute(r)).slice(0, 2);
@@ -105,7 +111,7 @@ async function overlays(page: Page, scheme: string, width: number, route: string
     )
   ) {
     await scan(page, "search open, no query", scheme, width, route);
-    await page.keyboard.type(query, { delay: 20 });
+    await page.keyboard.type(await queryWord(route), { delay: 20 });
     await page
       .waitForSelector("#site-search-listbox [role=option]", { timeout: 5000 })
       .catch(() => {});

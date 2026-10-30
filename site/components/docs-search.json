@@ -1,7 +1,7 @@
 {
   "$schema": "../document.schema.json",
   "$id": "DocsSearch",
-  "$description": "Docs search palette over the @jxsuite/search index (MiniSearch in the browser, no server and no third party). A trigger (variant=field: the rounded field with a / hint; variant=icon: a 44px icon button) opens a native-popover modal with live results. Hotkeys: / and Cmd/Ctrl+K. The index loads only when the palette opens. Props: variant (field or icon), label, links (the 'Jump to' shortcuts: [{ label, href }]).",
+  "$description": "Docs search palette over the @jxsuite/search index (MiniSearch in the browser, no server and no third party). A trigger (variant=field: the rounded field with a / hint; variant=icon: a 44px icon button) opens a native-popover modal with live results. Hotkeys: / and Cmd/Ctrl+K. The index loads only when the palette opens. Props: variant (field or icon), label, links (the 'Jump to' shortcuts: [{ label, href }]), searchScope (the URL prefix the search is kept to, e.g. /example/docs/ on a project's pages; empty searches the whole site), scopeName (the name of what is searched, shown in the palette; empty for the whole site).",
   "state": {
     "searchQuery": "",
     "searchResults": [],
@@ -27,7 +27,9 @@
     },
     "variant": "field",
     "label": "Search the docs",
-    "links": []
+    "links": [],
+    "searchScope": "",
+    "scopeName": ""
   },
   "tagName": "docs-search",
   "style": {
@@ -340,8 +342,8 @@
               "attributes": {
                 "type": "text",
                 "name": "site-search-query",
-                "placeholder": "Search the docs…",
-                "aria-label": "Search the docs",
+                "placeholder": "${state.scopeName ? 'Search ' + state.scopeName + '…' : 'Search the docs…'}",
+                "aria-label": "${state.scopeName ? 'Search ' + state.scopeName : 'Search the docs'}",
                 "autocomplete": "off",
                 "autocorrect": "off",
                 "spellcheck": "false",
@@ -644,7 +646,7 @@
             },
             {
               "tagName": "span",
-              "textContent": "${state.searchQuery ? state.searchCount + (state.searchCount === 1 ? ' result' : ' results') : 'Search the docs'}"
+              "textContent": "${state.searchQuery ? state.searchCount + (state.searchCount === 1 ? ' result' : ' results') : state.scopeName ? 'Search ' + state.scopeName : 'Search the docs'}"
             }
           ]
         }

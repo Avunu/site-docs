@@ -31,6 +31,16 @@
       "timing": "compiler",
       "body": "const MAX_ENTRIES = 300;\nconst hostOf = (href) => { try { return new URL(href).hostname; } catch (e) { return ''; } };\nconst normalize = (doc) => {\n  const out = [];\n  const seen = Object.create(null);\n  if (!doc || doc.version !== 1 || !Array.isArray(doc.projects)) { return out; }\n  doc.projects.forEach((p) => {\n    if (out.length >= MAX_ENTRIES) { return; }\n    try {\n      if (!p || typeof p.slug !== 'string' || typeof p.title !== 'string' || typeof p.platform !== 'string') { return; }\n      const title = p.title.trim().slice(0, 120);\n      if (!p.slug || !title || seen[p.slug] || !/^[a-z][a-z0-9-]{0,30}$/.test(p.platform)) { return; }\n      const docs = typeof p.docs === 'string' && p.docs.indexOf('https://') === 0 ? p.docs : '';\n      const href = docs || (typeof p.page === 'string' ? p.page : '');\n      const host = href.indexOf('https://') === 0 ? hostOf(href) : '';\n      if (!host) { return; }\n      seen[p.slug] = true;\n      out.push({ slug: p.slug, title: title, platform: p.platform, href: href, host: host, docs: !!docs });\n    } catch (e) { /* one bad entry never discards the others */ }\n  });\n  return out;\n};\nconst group = (items, current) => {\n  const labels = { frappe: 'Frappe & ERPNext', odoo: 'Odoo', wordpress: 'WordPress', nixos: 'NixOS', general: 'General' };\n  const order = ['frappe', 'odoo', 'wordpress', 'nixos', 'general'];\n  const by = Object.create(null);\n  items.forEach((it) => { (by[it.platform] = by[it.platform] || []).push(it); });\n  const keys = order.filter((k) => by[k]).concat(Object.keys(by).filter((k) => order.indexOf(k) === -1).sort());\n  return keys.map((k) => ({\n    platform: k,\n    label: Object.prototype.hasOwnProperty.call(labels, k) ? labels[k] : k,\n    items: by[k].slice().sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base' })).map((it) => ({\n      slug: it.slug,\n      title: it.title,\n      href: it.href,\n      current: it.slug === current,\n      caption: it.slug === current ? 'You are here' : (it.docs ? 'Docs' : it.host)\n    }))\n  }));\n};\nreturn group(normalize(state.catalog.data), state.config.data.slug);"
     },
+    "searchScope": {
+      "$prototype": "Function",
+      "timing": "compiler",
+      "body": "return state.config.data.path ? state.config.data.docs : '';"
+    },
+    "searchScopeName": {
+      "$prototype": "Function",
+      "timing": "compiler",
+      "body": "return state.config.data.path ? state.config.data.name : '';"
+    },
     "searchLinks": {
       "$prototype": "Function",
       "timing": "compiler",
@@ -246,7 +256,9 @@
               "$props": {
                 "variant": "field",
                 "label": "Search the docs",
-                "links": "${state.searchLinks}"
+                "links": "${state.searchLinks}",
+                "searchScope": "${state.searchScope}",
+                "scopeName": "${state.searchScopeName}"
               },
               "attributes": {
                 "role": "search"
