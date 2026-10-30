@@ -379,7 +379,7 @@
                 "type": "button",
                 "popovertarget": "site-search-modal",
                 "popovertargetaction": "hide",
-                "aria-label": "Close search"
+                "aria-label": "Esc, close search"
               },
               "style": {
                 "flex": "none",
