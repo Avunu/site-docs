@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import { assertBuild } from "../../src/lib/assert.js";
 import { checkLinks } from "../../src/lib/links.js";
 import {
+  dropMarkdownAlternate,
   dropMarkdownCopies,
   escapeTitle,
   fixCanonical,
@@ -513,6 +514,22 @@ test("the Markdown copies Jx writes beside pages are removed, other Markdown fil
   expect(existsSync(join(dist, "docs", "a", "index.md"))).toBe(false);
   expect(existsSync(join(dist, "docs", "lonely", "index.md"))).toBe(true);
   expect(existsSync(join(dist, "downloads", "notes.md"))).toBe(true);
+});
+
+test("the link from a page to its Markdown copy goes with the copy, other links stay", () => {
+  const head = (links: string): string => `<html><head><title>t</title>\n${links}</head></html>`;
+  expect(
+    dropMarkdownAlternate(
+      head('<link href="/docs/a/index.md" rel="alternate" type="text/markdown">\n'),
+    ),
+  ).toBe(head(""));
+  const kept = [
+    '<link href="/docs/a/notes.md" rel="alternate" type="text/markdown">\n',
+    '<link href="/docs/a/index.md" rel="alternate" type="text/plain">\n',
+    '<link href="https://docs.example.org/docs/a/" rel="canonical">\n',
+    '<link href="/feed.xml" rel="alternate" type="application/rss+xml">\n',
+  ].join("");
+  expect(dropMarkdownAlternate(head(kept))).toBe(head(kept));
 });
 
 describe("repository links in the HTML of a page", () => {

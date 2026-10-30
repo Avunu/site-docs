@@ -94,7 +94,8 @@ function propsOf(html: string, tag: string): any {
   return JSON.parse(decode(match![1]!));
 }
 const pageOf = (built: Built, route: string): string => {
-  const html = built.pages[`${route.slice(1)}index.html`];
+  const html =
+    built.pages[route.endsWith(".html") ? route.slice(1) : `${route.slice(1)}index.html`];
   expect(html, `no page for ${route}`).toBeDefined();
   return html!;
 };
@@ -139,7 +140,7 @@ describe("the build", () => {
     }
     expect(Object.keys(main.pages).sort()).toEqual(
       [
-        "404/index.html",
+        "404.html",
         "index.html",
         ...PATHS.map((path) => `${path}/index.html`),
         ...ALL_DOC_ROUTES.map((route) => `${route.slice(1)}index.html`),
@@ -238,7 +239,7 @@ describe("the header, already in the HTML", () => {
         expect(html, route).toContain('<a class="skip-link" href="#main">Skip to content</a>');
       }
     }
-    for (const route of ["/", "/404/"]) {
+    for (const route of ["/", "/404.html"]) {
       const html = pageOf(main, route);
       expect(nameLink(html), route).toEqual({ href: "/", text: WORKSPACE.name });
       expect(html, route).toContain('aria-label="Avunu, go to avunu.net"');
@@ -304,7 +305,7 @@ describe("the header, already in the HTML", () => {
         ]);
       }
     }
-    for (const route of ["/", "/404/"]) {
+    for (const route of ["/", "/404.html"]) {
       const switcher = propsOf(pageOf(main, route), "project-switcher") as {
         groups: Array<{ items: Array<{ current: boolean }> }>;
       };
@@ -404,7 +405,7 @@ describe("the sidebar and the drawer, already in the HTML", () => {
   });
 
   test("the landing pages have no sidebar", () => {
-    for (const route of ["/", "/example/", "/other/", "/404/"]) {
+    for (const route of ["/", "/example/", "/other/", "/404.html"]) {
       expect(pageOf(main, route), route).not.toContain("<docs-sidebar");
     }
   });
@@ -511,7 +512,7 @@ describe("the page, already in the HTML", () => {
       '<meta name="twitter:title" content="Getting started · Example Project">',
     );
     expect(html).toContain(
-      '<meta content="https://docs.example.org/example/docs/getting-started" property="og:url">',
+      '<meta content="https://docs.example.org/example/docs/getting-started/" property="og:url">',
     );
     // The site is one site: its name is the site's, whichever project the page documents.
     expect(html).toContain(`<meta content="${WORKSPACE.name}" property="og:site_name">`);
@@ -524,19 +525,19 @@ describe("the page, already in the HTML", () => {
     expect(other).toContain("<title>Getting started · Other Project</title>");
     expect(other).toContain('<meta property="og:title" content="Getting started · Other Project">');
     expect(other).toContain(
-      '<meta content="https://docs.example.org/other/docs/getting-started" property="og:url">',
+      '<meta content="https://docs.example.org/other/docs/getting-started/" property="og:url">',
     );
     expect(other).not.toContain("Example Project</title>");
   });
 
-  test("gives every page a canonical address on the site's domain, in its own project", () => {
+  test("gives every page a canonical address on the site's domain, in its own project, and the 404 page none", () => {
     for (const [file, html] of Object.entries(main.pages)) {
       const canonical = /<link href="([^"]+)" rel="canonical">/.exec(html)?.[1];
-      expect(canonical, file).toBeDefined();
-      // Jx writes it without the trailing slash; the build corrects that afterwards.
-      expect(canonical!.replace(/\/$/, ""), file).toBe(
-        `https://${WORKSPACE.domain}${routeOf(file).replace(/\/$/, "")}`,
-      );
+      if (file === "404.html") {
+        expect(canonical, file).toBeUndefined();
+        continue;
+      }
+      expect(canonical, file).toBe(`https://${WORKSPACE.domain}${routeOf(file)}`);
     }
   });
 });
@@ -599,7 +600,7 @@ describe("the landing pages and the 404 page", () => {
   });
 
   test("the 404 page says so and offers a way back to the site", () => {
-    const html = content(pageOf(main, "/404/"));
+    const html = content(pageOf(main, "/404.html"));
     expect(html).toContain("<h1>Page not found</h1>");
     expect(html).toContain('<a class="btn" href="/">Browse the documentation</a>');
     expect(html).toContain(
@@ -648,7 +649,7 @@ describe("the files Jx publishes next to the pages", () => {
     expect(locs.every((loc) => loc.startsWith(`https://${WORKSPACE.domain}/`))).toBe(true);
     for (const path of PATHS) {
       expect(sitemap).toContain(
-        `<loc>https://${WORKSPACE.domain}/${path}/docs/getting-started</loc>`,
+        `<loc>https://${WORKSPACE.domain}/${path}/docs/getting-started/</loc>`,
       );
     }
     expect(sitemap).toContain(`<loc>https://${WORKSPACE.domain}/</loc>`);

@@ -10,8 +10,8 @@
 //    code block (`<span>git</span>\n<span> </span>`), which a <pre> renders as one token per line.
 //    fixHighlightedCode takes the separators back out and keeps the code's own line breaks.
 // 3. Component expansion leaves empty <slot></slot> elements behind: dropEmptySlots.
-// 4. GitHub Pages serves a top-level 404.html for any unknown address. Jx writes pages as
-//    404/index.html, so publishNotFoundPage moves it.
+// 4. GitHub Pages serves a top-level 404.html for any unknown address. Jx 7 writes it there; Jx
+//    before 7 wrote 404/index.html, and publishNotFoundPage moves that one.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { copyFile, removeInside } from "./fsutil.js";
@@ -158,8 +158,8 @@ export function tidyPage(html: string): string {
 }
 
 /**
- * GitHub Pages answers an unknown URL with a top-level `404.html`. Jx writes the page
- * `pages/404.json` to `404/index.html` (trailing-slash routes), so it is moved to `404.html`; the
+ * GitHub Pages answers an unknown URL with a top-level `404.html`, where Jx 7 writes the page
+ * `pages/404.json`. Jx before 7 wrote it to `404/index.html`, so that one is moved to `404.html`; the
  * `404/` folder goes, because `/404/` would otherwise be a real, indexable-looking URL. Returns
  * whether it moved a page.
  */
