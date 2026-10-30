@@ -9,11 +9,12 @@
 //     of a title can hold `</title>` and then cannot be told from the end of the element; this is
 //     the repair for the `<` of a page of the shell's own, and assert.ts fails the build when a
 //     `</title>` got through.)
-//   - canonical URL and og:url: Jx writes them without the trailing slash the pages are served at.
-//   - 404.html: GitHub Pages serves it for any unknown address (Jx writes it to 404/index.html).
+//   - canonical URL and og:url: set to the address the page is served at, on the configured domain
+//     (Jx before 7 wrote them without the trailing slash).
+//   - 404.html: GitHub Pages serves it for any unknown address (Jx before 7 wrote it to 404/index.html).
 //   - index.md: Jx writes a Markdown copy of every page next to it (the whole page, menus and search
-//     included, with stray entities); nothing links to them and GitHub Pages would publish them, so
-//     they are removed.
+//     included, with stray entities) and links to it from the page's <head>; GitHub Pages would
+//     publish them, so the copies and the links to them are removed.
 //   - links to repository files that are not pages (LICENSE, source folders) in the HTML of a page,
 //     which Markdown staging cannot reach (a raw `<a href>`, an `<img src>`), become GitHub links.
 //   - sitemap.xml: Jx lists pages without the trailing slash they are served at, lists the 404 page,
@@ -66,6 +67,21 @@ export function escapeTitle(html: string): string {
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
         .replaceAll(/&(?![a-z][a-z0-9]*;|#\d+;|#x[\da-f]+;)/gi, "&amp;")}</title>`,
+  );
+}
+
+/**
+ * Removes the `<link rel="alternate" type="text/markdown">` with which Jx points a page at its
+ * Markdown copy (`…/index.md`), the file dropMarkdownCopies removes. Another Markdown alternate, one
+ * an author wrote, is kept.
+ */
+export function dropMarkdownAlternate(html: string): string {
+  return html.replaceAll(/<link\b[^>]*>\n?/gi, (tag) =>
+    /\srel=["']alternate["']/i.test(tag) &&
+    /\stype=["']text\/markdown["']/i.test(tag) &&
+    /\shref=["'][^"']*\/index\.md["']/i.test(tag)
+      ? ""
+      : tag,
   );
 }
 
@@ -322,7 +338,7 @@ export function runPostbuild(
   for (const file of files) {
     const route = routeOfFile(dist, file);
     const before = readFileSync(file, "utf8");
-    let after = restoreText(escapeTitle(tidyPage(before)));
+    let after = dropMarkdownAlternate(restoreText(escapeTitle(tidyPage(before))));
     const plain = unhighlightedLanguages(after);
     if (plain.length > 0) {
       warnings.push(
