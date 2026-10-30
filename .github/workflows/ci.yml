@@ -151,6 +151,13 @@ jobs:
           tar -xzf actionlint.tar.gz actionlint
       - name: actionlint
         run: ./actionlint -color .github/workflows/*.yml
+      # zizmor-action fetches the zizmor wheel with `python3 -m pip`; the runner's Nix python3 has no pip.
+      - name: Use a Python with pip from Nix on the self-hosted runner
+        if: ${{ runner.environment == 'self-hosted' }}
+        run: |
+          python="$(nix build --no-link --print-out-paths --impure --expr \
+            '(builtins.getAttr builtins.currentSystem (builtins.getFlake "nixpkgs").legacyPackages).python3.withPackages (ps: [ ps.pip ])')"
+          echo "${python}/bin" >> "$GITHUB_PATH"
       - name: zizmor on this repository
         uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
         with:
