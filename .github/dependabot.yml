@@ -1,8 +1,10 @@
 version: 2
 
-# Updates arrive as pull requests that a person merges after `ci` is green. Nothing here is released or
-# published as a package, so every update is a `chore(deps)` or `ci(deps)`: the commit types say what
-# kind of change it is, not what version it makes.
+# Updates arrive as pull requests that a person merges after `ci` is green. The commit type says whether
+# the update ships in a release of the shared check (release.yml): the build's own dependencies, Jx and
+# yaml, are `fix(deps)`, because they change what check-docs.yml checks in every project, so each makes
+# a patch release; development tooling, the browser suites and GitHub Actions are `chore(deps-dev)`,
+# `chore(deps)` and `ci(deps)`, which make none.
 #
 # The update chain for Jx: Dependabot's `jx` group here -> the whole `ci` workflow, including the
 # real-Jx integration tests and the Chrome suites -> a person merges -> deploy.yml publishes the site.
@@ -45,7 +47,8 @@ updates:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
     commit-message:
-      prefix: chore
+      prefix: fix
+      prefix-development: chore
       include: scope
 
   # The browser suites (verify/): Playwright and axe, run by the `verify` job of ci.yml.

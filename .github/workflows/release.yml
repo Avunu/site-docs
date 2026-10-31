@@ -1,0 +1,78 @@
+name: Release
+
+# Releases of the shared check. Every project calls check-docs.yml pinned to the commit of one of this
+# repository's release tags (`@<commit> # vX.Y.Z`), so Dependabot in a project proposes a new pin only when
+# a release is cut, not on every commit to the default branch (the bump pull requests alone land several a
+# day). A release is the tool, the registry and check-docs.yml at one commit.
+#
+# release-please keeps one release pull request, `chore: release vX.Y.Z`, open on the default branch, built
+# from the Conventional Commits since the last release: `feat` (a minor while the version is 0.x), `fix`,
+# `perf` and `revert` make a release; `chore`, `ci`, `docs`, `test`, `refactor`, `style` and `build` do not,
+# so the bump pull requests (`chore(docs)`) never make one. Merging the release pull request tags vX.Y.Z on
+# its commit and creates the GitHub Release; a maintainer merges it when the check should ship.
+#
+# The release pull request changes only CHANGELOG.md, version.txt and .release-please-manifest.json, none of
+# them in deploy.yml's path filter: merging it publishes nothing. Nothing is published to a registry.
+#
+# The token. The org's GitHub App, when this repository can read it (the variable AVUNU_CI_APP_ID and the
+# secret AVUNU_CI_PRIVATE_KEY), gives release-please a token whose pushes start ci.yml on the release pull
+# request by themselves. Without it release-please uses GITHUB_TOKEN, whose pushes start no workflow, so
+# ci.yml is dispatched on the release branch instead (a dispatched run reports `ci` on the branch head).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release pull request
+    if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
+    timeout-minutes: 10
+    permissions:
+      contents: write # the release commit's tag and the GitHub Release (the fallback token)
+      pull-requests: write # the release pull request (the fallback token)
+      actions: write # dispatch ci.yml on the release branch when the token is GITHUB_TOKEN
+    steps:
+      - name: Whether the org's GitHub App is available
+        id: app
+        env:
+          ENABLED: ${{ vars.AVUNU_CI_APP_ID != '' && secrets.AVUNU_CI_PRIVATE_KEY != '' }}
+        run: echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
+
+      - name: Mint the GitHub App's token
+        if: ${{ steps.app.outputs.enabled == 'true' }}
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.AVUNU_CI_APP_ID }}
+          private-key: ${{ secrets.AVUNU_CI_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: release-please
+        id: rp
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: ${{ github.event.repository.default_branch }}
+
+      # Only with GITHUB_TOKEN: its pushes start no `pull_request` workflow, so the required `ci` check would
+      # never report on the release commit. A dispatched run does start, and its checks attach to the head.
+      - name: Run CI on the release pull request
+        if: ${{ steps.app.outputs.enabled != 'true' && steps.rp.outputs.prs_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_PR: ${{ steps.rp.outputs.pr }}
+        run: |
+          branch="$(jq -r '.headBranchName' <<< "$RELEASE_PR")"
+          gh workflow run ci.yml --ref "$branch"

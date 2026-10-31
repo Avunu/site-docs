@@ -24,11 +24,15 @@ Everything in the repository is a pull request. These are not files, so a person
 
 ## Merging
 
-Pull requests are squash-merged, so the pull request title becomes the commit message: use a [Conventional Commit](CONTRIBUTING.md#commits-and-pull-requests). A bump pull request, `chore(docs): bump N project(s)`, merges itself when `ci` is green. Nothing in this repository is released or published to a package registry: the site is the product, and a merge to the default branch deploys it.
+Pull requests are squash-merged, so the pull request title becomes the commit message: use a [Conventional Commit](CONTRIBUTING.md#commits-and-pull-requests). A bump pull request, `chore(docs): bump N project(s)`, merges itself when `ci` is green. A merge to the default branch that touches the site deploys it; nothing is published to a package registry.
+
+## Releasing the check
+
+Projects pin `check-docs.yml` to the commit of a release tag (`# vX.Y.Z`), so Dependabot proposes a new pin to them only when this repository releases. `release.yml` keeps one pull request, `chore: release vX.Y.Z`, open with the changelog since the last release: a `feat`, `fix`, `perf` or `revert` commit makes one, the bump pull requests do not. Merge it when the check should ship: it tags the release and publishes nothing. Register a new project with a `feat` commit and release it, because a project's check reads the registry at the release its `docs.yml` pins.
 
 ## Updating Jx
 
-The build pins the exact Jx versions it was tested with. Dependabot opens a grouped pull request for a Jx release (`chore(deps)`); `ci` builds a fixture workspace against it, including the integration tests that run the real Jx on documents that break each rule; a person merges it. `jx-latest.yml` installs the latest Jx over the pins every week and opens an issue when that fails, as the early warning for a release Dependabot has not proposed yet.
+The build pins the exact Jx versions it was tested with. Dependabot opens a grouped pull request for a Jx release (`fix(deps)`, so the next release of the check carries it); `ci` builds a fixture workspace against it, including the integration tests that run the real Jx on documents that break each rule; a person merges it. `jx-latest.yml` installs the latest Jx over the pins every week and opens an issue when that fails, as the early warning for a release Dependabot has not proposed yet.
 
 ## Facts the design rests on
 

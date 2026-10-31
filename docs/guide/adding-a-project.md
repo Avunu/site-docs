@@ -3,7 +3,7 @@ title: Adding a project
 description: How a repository gets onto the site, what it keeps, how its documentation reaches the site after a release, and how a project is renamed or removed.
 nav_title: Adding a project
 order: 3
-updated: 2026-10-15
+updated: 2026-10-31
 tags: [guide, registry, submodules]
 ---
 
@@ -72,12 +72,12 @@ jobs:
   docs:
     permissions:
       contents: read
-    uses: Avunu/site-docs/.github/workflows/check-docs.yml@<40-character commit> # <date or version>
+    uses: Avunu/site-docs/.github/workflows/check-docs.yml@<commit of a release tag> # vX.Y.Z
     with:
       path: frappe-nix
 ```
 
-`path` is the project's path in `projects.json`, and the project must already be in the registry. The workflow builds this repository at the commit pinned in `uses` (it reads its own commit, so the pin is the only place that names it) and checks the project's pull request in place of its submodule, so links to other projects are checked too. It has a read-only token and no secret, publishes nothing and never runs the project's code. Pin `uses` to a full commit; the tool moves with the pin, so moving a project to a newer check is one line. The optional input `ref` builds with another commit or branch instead, to try a change of this repository before it is pinned. See [workflows](../reference/workflows.md#check-docsyml).
+`path` is the project's path in `projects.json`, and the project must already be in the registry. The workflow builds this repository at the commit pinned in `uses` (it reads its own commit, so the pin is the only place that names it) and checks the project's pull request in place of its submodule, so links to other projects are checked too. It has a read-only token and no secret, publishes nothing and never runs the project's code. Pin `uses` to the full commit that a [release](https://github.com/Avunu/site-docs/releases) tag points at, with the tag in the comment (`# v0.2.0`); the tool moves with the pin, so moving a project to a newer check is one line. Dependabot reads the comment and proposes a new pin only when this repository cuts a release, not on every commit to its default branch. A project registered after the latest release fails the check with "not in projects.json" until the next release, so registering a project is a `feat` commit, which makes one. The optional input `ref` builds with another commit or branch instead, to try a change of this repository before it is pinned. See [workflows](../reference/workflows.md#check-docsyml).
 
 ## How documentation reaches the site
 

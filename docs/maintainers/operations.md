@@ -2,7 +2,7 @@
 title: Operations
 description: The secrets and settings a maintainer creates once, how a project is bumped into the site and how to force one, what to do when a bump fails, and the 60-day scheduler caveat.
 order: 2
-updated: 2026-10-15
+updated: 2026-10-31
 tags: [maintainers, operations, github-actions]
 ---
 
@@ -16,6 +16,7 @@ This repository publishes one site, `docs.avunu.net`, built from every project's
 | `ci.yml`, job `Workspace build` | Pull requests, pushes to `main`, by hand         | Builds and checks the whole site when the change can reach it (the submodules, the registry, `docs/`, the shell, the tool, the package files); skipped otherwise               |
 | `deploy.yml` (Docs site)        | Pushes to `main` that touch those paths, by hand | Builds and checks the site; when `DOCS_SITE_ENABLED` is `true`, publishes it to GitHub Pages from the same job's artifact                                                      |
 | `check-docs.yml` (Check docs)   | Called by each project's `docs.yml`              | Checks one project's pull request exactly as the site would build it, with its checkout in place of its submodule; read-only, no secret, no deploy                             |
+| `release.yml` (Release)         | Pushes to `main`, by hand                        | Keeps the release pull request `chore: release vX.Y.Z` open; merging it tags the release that projects pin in their `docs.yml`, and publishes nothing                          |
 
 Their triggers, permissions and steps are in [workflows](../reference/workflows.md).
 

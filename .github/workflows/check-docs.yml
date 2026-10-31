@@ -11,9 +11,13 @@ name: Check docs
 #     docs:
 #       permissions:
 #         contents: read
-#       uses: <this repository>/.github/workflows/check-docs.yml@<40-character commit> # <version or date>
+#       uses: <this repository>/.github/workflows/check-docs.yml@<commit of a release tag> # vX.Y.Z
 #       with:
 #         path: frappe-nix # the `path` of the project in projects.json
+#
+# Pin the commit that a release tag of this repository points at, with the tag in the comment: Dependabot
+# then proposes a new pin only when a release is cut (release.yml), never on each commit to the default
+# branch. A pin to any other commit, or with a date in the comment, follows the default branch instead.
 #
 # What it does: checks out this repository at the commit the caller pinned in `uses:` (this workflow
 # reads it from `job.workflow_sha`, so the tool and this file are always one revision: changing the pin

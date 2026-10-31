@@ -2,17 +2,18 @@
 title: Workflows
 description: The GitHub Actions workflows of this repository, what triggers each, the permissions it holds, what it does, and the trust model they share.
 order: 4
-updated: 2026-10-15
+updated: 2026-10-31
 tags: [reference, github-actions, security]
 ---
 
-Four workflows keep the site current and safe. A fifth, `ci.yml`, tests this repository. Every action is pinned to a full commit SHA with its version in a comment, every workflow starts with `permissions: {}`, and each job asks only for what it needs.
+Four workflows keep the site current and safe, and `release.yml` releases the shared check. Another, `ci.yml`, tests this repository. Every action is pinned to a full commit SHA with its version in a comment, every workflow starts with `permissions: {}`, and each job asks only for what it needs.
 
 | Workflow                           | Triggers                                                  | Holds                                                              |
 | ---------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------ |
 | [`deploy.yml`](#deployyml)         | Push to the default branch that touches the site; by hand | Build: `contents: read`. Deploy: `pages: write`, `id-token: write` |
 | [`bump.yml`](#bumpyml)             | Every 30 minutes; by hand                                 | `contents`, `pull-requests`, `actions`: write                      |
 | [`check-docs.yml`](#check-docsyml) | Called by a project's own workflow                        | `contents: read`                                                   |
+| [`release.yml`](#releaseyml)       | Push to the default branch; by hand                       | `contents`, `pull-requests`, `actions`: write                      |
 | [`ci.yml`](#ciyml)                 | Pull requests; pushes to the default branch; by hand      | Read-only                                                          |
 
 ## `deploy.yml`
@@ -57,6 +58,20 @@ The project's pull request is judged exactly as the site will build it, links to
 
 The repository that supplies the tool is named once inside the workflow (`WORKSPACE_REPOSITORY`), because inside a called workflow `github.repository` is the caller's.
 
+Callers pin the commit of a release tag, with the tag in a comment (`@<commit> # v0.2.0`), so Dependabot proposes a new pin only when `release.yml` cuts a release.
+
+## `release.yml`
+
+Name: **Release**. Releases the shared check: the tool, the registry and `check-docs.yml` at one commit, tagged `vX.Y.Z`.
+
+Triggers: a push to the default branch, and `workflow_dispatch`. One run at a time, never cancelled.
+
+1. Mint a token of the org's GitHub App when the repository can read it (the variable `AVUNU_CI_APP_ID` and the secret `AVUNU_CI_PRIVATE_KEY`); otherwise use `GITHUB_TOKEN`.
+2. Run release-please (`release-please-config.json`, `.release-please-manifest.json`), which keeps one pull request `chore: release vX.Y.Z` open with the changelog of the Conventional Commits since the last release. `feat` (a minor while the version is 0.x), `fix`, `perf` and `revert` make a release; the other types, the bump pull requests' `chore(docs)` among them, do not. Merging it tags the commit `vX.Y.Z` and creates the GitHub Release.
+3. With `GITHUB_TOKEN` only, dispatch `ci.yml` on the release pull request's branch, because a push with that token starts no `pull_request` workflow. The App's pushes start `ci.yml` by themselves.
+
+The release pull request changes `CHANGELOG.md`, `version.txt` and `.release-please-manifest.json` only, none of which `deploy.yml` watches, so merging it publishes nothing. Nothing is published to a package registry.
+
 ## `ci.yml`
 
 The workflow that tests this repository, with one required check, `ci`, that gathers the rest and tolerates skipped jobs. It runs the format check, lint, type check, and the unit and integration tests; builds and checks the documentation workspace when the change can reach the site (the same paths as the push filter of `deploy.yml`, always on a manual run); runs the browser suites against a fixture workspace; lints the workflows with `actionlint` and `zizmor`; and checks that a pull request title is a Conventional Commit. A run started with `workflow_dispatch` is how a bump pull request opened with `GITHUB_TOKEN` gets its checks.
@@ -71,5 +86,5 @@ Documentation is other people's text. A project's `docs/` folder is content that
 - **Installs run no scripts**: `npm ci --ignore-scripts`. The Jx packages are pinned exactly.
 - **A page of Markdown is data in the build.** Jx runs every string that holds `${` as JavaScript when it builds an attribute, so staging writes every `${` of a page inert, in every spelling, before Jx sees it, and the registry refuses the sequence in its own text keys. A pull request that changes only `docs/` cannot run code in the build.
 - **Markdown is not trusted on the published site**, which is served from avunu.net's domain. The lint refuses raw HTML, links, images and directives that run code or load another page; the output assertions refuse any built page that holds a script, an event handler, an unsafe address or an embedded page, and any published file that would run when opened, in every mode; and every page carries a Content-Security-Policy that names its own inline scripts by hash and refuses all others. See [the build pipeline](build-pipeline.md#the-content-security-policy).
-- **Callers pin `check-docs.yml` by commit**, and every action in every workflow is pinned by commit.
+- **Callers pin `check-docs.yml` by the commit of a release tag**, and every action in every workflow is pinned by commit.
 - **The bump token is the only credential**, it lives in this repository alone, and it is limited to this repository.
