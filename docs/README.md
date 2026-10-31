@@ -35,7 +35,7 @@ A project keeps a `docs/` folder with a `README.md` in it, and nothing else of t
 ## What the site gives every page
 
 - **The same look as avunu.net**: light and dark themes, a sidebar per project, an "On this page" list, previous and next links and an "Edit this page on GitHub" link that points into the project's own repository, branch and docs folder.
-- **Search** across every project, built at build time and run in the browser.
+- **Search**, built at build time and run in the browser: on a project's pages it searches that project, on the site's home page every project.
 - **A project menu** that lists every Avunu project by platform and marks the one you are in.
 - **Checks that fail the build.** In CI a broken link, a missing image, Markdown the site cannot show, an empty link, or a script, event handler or `javascript:` address in the Markdown stops the build, and every page carries a Content-Security-Policy. See [writing documentation](guide/writing-docs.md).
 
