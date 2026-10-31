@@ -54,7 +54,7 @@ Source conventions: TypeScript with ES modules, `.js` specifiers for relative im
 
 ## Commits and pull requests
 
-Pull requests are squash-merged, so **the pull request title becomes the commit message**. Use [Conventional Commits](https://www.conventionalcommits.org): `feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor:`, `perf:`, `style:`, `build:` and `revert:`, with an optional scope (`chore(docs): bump 3 project(s)`). Mark a breaking change with `!` and explain it in a `BREAKING CHANGE:` footer. The title is checked by `scripts/check-pr-title.mjs`; lines of a commit body are at most 100 characters.
+Pull requests are squash-merged, so **the pull request title becomes the commit message**. Use [Conventional Commits](https://www.conventionalcommits.org): `feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor:`, `perf:`, `style:`, `build:` and `revert:`, with an optional scope (`chore(docs): bump 3 project(s)`). Mark a breaking change with `!` and explain it in a `BREAKING CHANGE:` footer. The title is checked by `scripts/check-pr-title.mjs`; lines of a commit body are at most 100 characters. The type also decides the next release of the shared check, which projects pin (`release.yml`): `feat`, `fix`, `perf` and `revert` make one, the other types do not.
 
 A good pull request says what changed and why, how it was verified, and any decision a maintainer should confirm.
 

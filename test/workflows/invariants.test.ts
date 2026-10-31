@@ -25,6 +25,7 @@ const EVENTS: Record<string, string[]> = {
   "ci.yml": ["pull_request", "push", "workflow_dispatch"],
   "deploy.yml": ["push", "workflow_dispatch"],
   "jx-latest.yml": ["schedule", "workflow_dispatch"],
+  "release.yml": ["push", "workflow_dispatch"],
 };
 
 /** The only jobs that hold a write permission, and which. Everything else is read-only or has none. */
@@ -32,6 +33,7 @@ const WRITES: Record<string, string[]> = {
   "bump.yml#bump": ["actions", "contents", "pull-requests"],
   "deploy.yml#deploy": ["id-token", "pages"],
   "jx-latest.yml#report": ["issues"],
+  "release.yml#release-please": ["actions", "contents", "pull-requests"],
 };
 
 /** The scripts a workflow may run; every one of them exists in scripts/. */
@@ -206,7 +208,7 @@ describe("the workflows of this repository", () => {
     expect(publishers).toEqual([]);
   });
 
-  test("no workflow creates or moves a tag: callers pin a commit and there is no major tag", () => {
+  test("no workflow creates or moves a tag by hand: release-please tags vX.Y.Z, and there is no major tag", () => {
     for (const wf of workflows) {
       expect(wf.text, wf.file).not.toMatch(
         /git tag\b|git push[^\n]*--tags|git\/refs\/tags|refs\/tags\//,

@@ -64,8 +64,12 @@ describe(".github/dependabot.yml", () => {
     ]);
   });
 
-  test("every update is a chore(deps) or ci(deps): nothing is released, so no update is a fix", () => {
-    expect(entry("npm")["commit-message"]).toEqual({ prefix: "chore", include: "scope" });
+  test("the build's own dependencies are fix(deps), so each ships in a release of the check; the rest release nothing", () => {
+    expect(entry("npm")["commit-message"]).toEqual({
+      prefix: "fix",
+      "prefix-development": "chore",
+      include: "scope",
+    });
     expect(
       config.updates.find((update) => update.directory === "/verify")?.["commit-message"],
     ).toEqual({
@@ -75,8 +79,9 @@ describe(".github/dependabot.yml", () => {
     expect(entry("github-actions")["commit-message"]).toEqual({ prefix: "ci", include: "scope" });
     // The titles those settings produce are all accepted by the pull request title check.
     for (const title of [
-      "chore(deps): bump the jx group with 4 updates",
-      "chore(deps): bump yaml from 2.9.1 to 2.9.2",
+      "fix(deps): bump the jx group with 4 updates",
+      "fix(deps): bump yaml from 2.9.1 to 2.9.2",
+      "chore(deps-dev): bump the tooling group with 3 updates",
       "chore(deps): bump the browser-suites group with 3 updates",
       "ci(deps): bump the actions group with 2 updates",
     ]) {

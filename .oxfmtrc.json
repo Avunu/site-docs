@@ -2,6 +2,7 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     "build",
+    "CHANGELOG.md",
     "dist",
     "node_modules",
     "package-lock.json",

@@ -2,7 +2,7 @@
 title: Maintainers
 description: Where to find the operations guide, the one-time migration runbook, the contribution rules and the security policy, and the changes asked of Jx.
 order: 4
-updated: 2026-10-15
+updated: 2026-10-31
 tags: [maintainers, operations]
 ---
 
@@ -25,6 +25,7 @@ This section is for the people who run `docs.avunu.net` and change the tool that
 | `deploy.yml`     | Pushes to `main` that can change the site, by hand | Builds the site and publishes it to GitHub Pages                                                    |
 | `bump.yml`       | Every 30 minutes, by hand                          | Moves each project's submodule pointer to its latest release and opens one pull request             |
 | `check-docs.yml` | Called by each project                             | Checks a project's pull request as the site would build it                                          |
+| `release.yml`    | Pushes to `main`, by hand                          | Keeps the release pull request open; merging it tags `vX.Y.Z`, the version projects pin             |
 | `jx-latest.yml`  | Weekly                                             | Installs the latest Jx over the pins, runs the integration tests, and opens an issue on failure     |
 
-See [workflows](../reference/workflows.md) for the details. Dependabot groups the `@jxsuite/*` updates, the runtime dependency `yaml`, the development tooling and the browser suites (`chore(deps)` all of them) and GitHub Actions (`ci(deps)`).
+See [workflows](../reference/workflows.md) for the details. Dependabot groups the `@jxsuite/*` updates and the runtime dependency `yaml` (`fix(deps)`: they change the check, so each makes a release), the development tooling and the browser suites (`chore(deps-dev)` and `chore(deps)`) and GitHub Actions (`ci(deps)`).
