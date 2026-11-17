@@ -52,6 +52,10 @@ describe("release.yml", () => {
     });
   });
 
+  test("runs on a GitHub-hosted runner, never a self-hosted one: the job can hold the App's key", () => {
+    expect(job?.["runs-on"]).toBe("ubuntu-latest");
+  });
+
   test("uses the org's GitHub App when it can, and dispatches ci.yml only without it", () => {
     const step = job?.steps?.find((candidate) =>
       candidate.uses?.startsWith("googleapis/release-please-action@"),
