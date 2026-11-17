@@ -66,6 +66,8 @@ Name: **Release**. Releases the shared check: the tool, the registry and `check-
 
 Triggers: a push to the default branch, and `workflow_dispatch`. One run at a time, never cancelled.
 
+It runs on GitHub-hosted `ubuntu-latest`, never on the self-hosted runners the other workflows use: the job can hold the App's private key, and a shared runner keeps what earlier jobs of any repository left behind.
+
 1. Mint a token of the org's GitHub App when the repository can read it (the variable `AVUNU_CI_APP_ID` and the secret `AVUNU_CI_PRIVATE_KEY`); otherwise use `GITHUB_TOKEN`.
 2. Run release-please (`release-please-config.json`, `.release-please-manifest.json`), which keeps one pull request `chore: release vX.Y.Z` open with the changelog of the Conventional Commits since the last release. `feat` (a minor while the version is 0.x), `fix`, `perf` and `revert` make a release; the other types, the bump pull requests' `chore(docs)` among them, do not. Merging it tags the commit `vX.Y.Z` and creates the GitHub Release.
 3. With `GITHUB_TOKEN` only, dispatch `ci.yml` on the release pull request's branch, because a push with that token starts no `pull_request` workflow. The App's pushes start `ci.yml` by themselves.
