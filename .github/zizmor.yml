@@ -1,9 +1,10 @@
 # zizmor (https://docs.zizmor.sh) audits every workflow here, in the "pedantic" persona, in CI (the
-# `workflows` job of ci.yml). Every action, the reusable
-# workflows of this repository included, must be pinned to a full commit hash: a version comment is
-# for people, the hash is what runs.
+# `workflows` job of ci.yml). Every action names a release tag, which the ref-pin policy accepts. The
+# lockfile .github/workflows/actions.lock pins each tag to the commit it resolves to, and the
+# actions-lock.yml workflow checks that the lockfile still covers every action. A reusable workflow
+# call (jobs.<id>.uses) is pinned to a full commit hash, with its version as a comment.
 rules:
   unpinned-uses:
     config:
       policies:
-        "*": hash-pin
+        "*": ref-pin

@@ -54,7 +54,7 @@ jobs:
       - name: Mint the GitHub App's token
         if: ${{ steps.app.outputs.enabled == 'true' }}
         id: app-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@v3.3.0
         with:
           client-id: ${{ vars.AVUNU_CI_APP_ID }}
           private-key: ${{ secrets.AVUNU_CI_PRIVATE_KEY }}
@@ -63,7 +63,7 @@ jobs:
 
       - name: release-please
         id: rp
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        uses: googleapis/release-please-action@v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
