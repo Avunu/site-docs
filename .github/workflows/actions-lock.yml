@@ -1,0 +1,38 @@
+name: Actions lock
+
+# Checks that the lockfile .github/workflows/actions.lock still covers every action the workflows use
+# (gh actions-lock --verify). It is its own workflow, not a job in another one, so that a lock failure
+# never blocks a release gate that calls a workflow of this repository.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: actions-lock-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lockfile:
+    name: Verify the actions lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # checkout, and gh actions-lock reads the public action repositories
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install gh-actions-lock
+        run: |
+          if ! gh extension list | grep -q 'github/gh-actions-lock'; then
+            gh extension install github/gh-actions-lock --pin v0.5.1
+          fi
+      - name: Verify the lockfile
+        run: gh actions-lock --verify

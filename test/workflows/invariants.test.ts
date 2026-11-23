@@ -20,6 +20,7 @@ const workflows = repositoryWorkflows();
 
 /** The events each workflow of this repository starts on. */
 const EVENTS: Record<string, string[]> = {
+  "actions-lock.yml": ["pull_request", "push", "workflow_dispatch"],
   "bump.yml": ["schedule", "workflow_dispatch"],
   "check-docs.yml": ["workflow_call"],
   "ci.yml": ["pull_request", "push", "workflow_dispatch"],
@@ -125,12 +126,21 @@ describe("the workflows of this repository", () => {
   });
 
   test.each(workflows.map((wf) => [wf.file, wf] as const))(
-    "%s: every action is pinned to a full commit with a version comment",
+    "%s: a step names a version tag, which the lockfile covers; a reusable call names a full commit with its version as a comment",
     (_file, wf) => {
+      // The lockfile does not cover a reusable call (jobs.<id>.uses), so that one keeps a commit hash.
+      const reusable = new Set(
+        Object.values(wf.doc.jobs).flatMap((job) => (job.uses === undefined ? [] : [job.uses])),
+      );
       for (const { ref, comment, line } of usesLines(wf.text)) {
         if (ref.startsWith("./")) continue;
-        expect(ref, `${wf.where}:${line}`).toMatch(/^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/);
-        expect(comment, `${wf.where}:${line} version comment`).toMatch(/^v\d+\.\d+\.\d+$/);
+        const where = `${wf.where}:${line}`;
+        if (reusable.has(ref)) {
+          expect(ref, where).toMatch(/^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/);
+          expect(comment, `${where} version comment`).toMatch(/^v\d+\.\d+\.\d+$/);
+        } else {
+          expect(ref, where).toMatch(/^[\w.-]+\/[\w./-]+@v\d+(?:\.\d+\.\d+)?$/);
+        }
       }
     },
   );
@@ -219,11 +229,11 @@ describe("the workflows of this repository", () => {
 });
 
 describe("the files around the workflows", () => {
-  test("zizmor requires a commit hash for every action, the reusable workflows of this repository included", () => {
+  test("zizmor requires a ref pin for every action: a release tag is one", () => {
     const config = readYaml<{
       rules: { "unpinned-uses": { config: { policies: Record<string, string> } } };
     }>(".github", "zizmor.yml");
-    expect(config.rules["unpinned-uses"].config.policies).toEqual({ "*": "hash-pin" });
+    expect(config.rules["unpinned-uses"].config.policies).toEqual({ "*": "ref-pin" });
   });
 
   test("CODEOWNERS puts the workflows, the registry and the package files under a maintainer", () => {

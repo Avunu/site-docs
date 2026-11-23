@@ -33,11 +33,11 @@ jobs:
       contents: read # checkout
     steps:
       - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false
@@ -66,11 +66,11 @@ jobs:
       contents: read # checkout
     steps:
       - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false
@@ -94,16 +94,16 @@ jobs:
       contents: read # checkout
     steps:
       - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: "1.4"
           no-cache: true
@@ -122,7 +122,7 @@ jobs:
         run: bun run.ts --out "$RUNNER_TEMP/verify"
       - name: Upload the screenshots
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: verify-shots
           path: ${{ runner.temp }}/verify/shots
@@ -137,7 +137,7 @@ jobs:
       contents: read # checkout, and zizmor's online audits read public repositories
     steps:
       - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Install actionlint
@@ -159,7 +159,7 @@ jobs:
             '(builtins.getAttr builtins.currentSystem (builtins.getFlake "nixpkgs").legacyPackages).python3.withPackages (ps: [ ps.pip ])')"
           echo "${python}/bin" >> "$GITHUB_PATH"
       - name: zizmor on this repository
-        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        uses: zizmorcore/zizmor-action@v0.8.0
         with:
           version: "1.30.1"
           persona: pedantic
@@ -177,11 +177,11 @@ jobs:
       contents: read # checkout
     steps:
       - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false
@@ -207,7 +207,7 @@ jobs:
       contents: read # checkout; the submodules are public
     steps:
       - name: Check out the repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 2 # the merge commit of a pull request and its parents, to see what changed
           persist-credentials: false
@@ -236,7 +236,7 @@ jobs:
         run: git submodule update --init --depth 1 --recursive
       - name: Set up Node.js
         if: ${{ steps.changes.outputs.relevant == 'true' }}
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false
