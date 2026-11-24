@@ -385,7 +385,7 @@
       "path": "wordpress-nix",
       "slug": "wordpress-nix",
       "name": "wordpress-nix",
-      "tagline": "A fast FrankenPHP WordPress stack built with Nix, deployable as OCI containers or a NixOS module, with MySQL or Turso databases.",
+      "tagline": "Read-only WordPress sites built with Nix: a stock Bedrock repository served by FrankenPHP on NixOS, with migrate-on-deploy and a tool that converts legacy sites.",
       "platform": "nixos",
       "repo": "https://github.com/Avunu/wordpress-nix",
       "license": "MIT",
