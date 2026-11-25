@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/Avunu/site-docs/compare/v0.4.0...v0.4.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** Bump the jx group across 1 directory with 4 updates ([#199](https://github.com/Avunu/site-docs/issues/199)) ([5c5324a](https://github.com/Avunu/site-docs/commit/5c5324a8ddaa8c4e0bde4445b975c1228e8488d7))
+
 ## [0.4.0](https://github.com/Avunu/site-docs/compare/v0.3.0...v0.4.0) (2026-11-08)
 
 
