@@ -15,7 +15,8 @@ name: Check docs
 #       with:
 #         path: frappe-nix # the `path` of the project in projects.json
 #
-# Pin the commit that a release tag of this repository points at, with the tag in the comment: Dependabot
+# Pin the release tag itself (@vX.Y.Z), or the commit a release tag of this repository points at, with the
+# tag in the comment: Dependabot
 # then proposes a new pin only when a release is cut (release.yml), never on each commit to the default
 # branch. A pin to any other commit, or with a date in the comment, follows the default branch instead.
 #
