@@ -1,13 +1,7 @@
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import {
-  dropEmptySlots,
-  fixHighlightedCode,
-  publishNotFoundPage,
-  tidyHtml,
-  tidyPage,
-} from "../../src/lib/tidy.js";
+import { dropEmptySlots, publishNotFoundPage, tidyHtml, tidyPage } from "../../src/lib/tidy.js";
 import { tempDir, writeTree } from "../support/index.js";
 
 test("removes the emitter separator before punctuation and keeps authored spaces", () => {
@@ -37,11 +31,11 @@ test("tidyHtml never touches pre, textarea, script or style", () => {
   expect(tidyHtml(`<p>x\n  </p>${pre}${script}`)).toBe(`<p>x</p>${pre}${script}`);
 });
 
-/** What the emitter writes for a highlighted block inside a component: a newline between every pair of nodes. */
-const emitted = (nodes: string[]): string => nodes.join("\n");
+/** A highlighted block as Jx 11 writes it: one token span after another, and the newlines of the code and nothing else. */
+const highlighted = (nodes: string[]): string => nodes.join("");
 const span = (text: string, i = 0): string => `<span class="jxs-${i}">${text}</span>`;
 
-test("highlighted code inside a component gets its separators back out and keeps its own newlines", () => {
+test("highlighted code keeps its own line breaks, which are all the newlines in the block", () => {
   // Source:  git clone x\ncd x\n\nbun install
   const tokens = [
     span("git", 0),
@@ -56,33 +50,33 @@ test("highlighted code inside a component gets its separators back out and keeps
     span("bun", 6),
     span(" install", 7),
   ];
-  const html = `<docs-prose><pre><code class="language-bash shiki">${emitted(tokens)}</code></pre></docs-prose>`;
-  const fixed = fixHighlightedCode(html);
-  const code = /<code[^>]*>([\s\S]*)<\/code>/.exec(fixed)![1]!;
+  const html = `<docs-prose><pre><code class="language-bash shiki">${highlighted(tokens)}</code></pre></docs-prose>`;
+  const code = /<code[^>]*>([\s\S]*)<\/code>/.exec(tidyPage(html))![1]!;
   expect(code.replaceAll(/<[^>]+>/g, "")).toBe("git clone x\ncd x\n\nbun install");
   expect(code).toContain(`${span("git", 0)}${span(" ", 1)}`);
 });
 
-test("a code block nested deeper in components is fixed too", () => {
-  const tokens = [span("a", 0), "\n", span("b", 1)];
-  const html = `<docs-prose><docs-callout><div class="body"><pre><code class="language-text shiki">${emitted(tokens)}</code></pre></div></docs-callout></docs-prose>`;
-  expect(
-    /<code[^>]*>([\s\S]*)<\/code>/.exec(fixHighlightedCode(html))![1]!.replaceAll(/<[^>]+>/g, ""),
-  ).toBe("a\nb");
+test("a single line break between two highlighted tokens is kept, not halved away", () => {
+  // The case that broke the docs: `cd site-docs` and `npm install` on two lines.
+  const html = `<docs-prose><pre><code class="language-bash shiki">${highlighted([span("cd", 0), span(" site-docs", 1), "\n", span("npm", 2)])}</code></pre></docs-prose>`;
+  expect(/<code[^>]*>([\s\S]*)<\/code>/.exec(tidyPage(html))![1]!.replaceAll(/<[^>]+>/g, "")).toBe(
+    "cd site-docs\nnpm",
+  );
 });
 
-test("code outside a component, and code that is not highlighted, is left exactly as emitted", () => {
-  const outside = `<article><pre><code class="language-bash shiki">${emitted([span("a", 0), span("b", 1)])}</code></pre></article>`;
-  expect(fixHighlightedCode(outside)).toBe(outside);
-  const plain = "<docs-prose><pre><code>line one\nline two</code></pre></docs-prose>";
-  expect(fixHighlightedCode(plain)).toBe(plain);
+test("a highlighted block is left exactly as Jx wrote it, inside a component or not", () => {
+  const block = `<pre><code class="language-text shiki">${highlighted([span("a", 0), "\n", span("b", 1)])}</code></pre>`;
+  for (const html of [`<docs-prose>${block}</docs-prose>`, `<article>${block}</article>`]) {
+    expect(tidyPage(html)).toBe(html);
+  }
 });
 
-test("tags the scanner cannot nest do not confuse it", () => {
-  const html = `<docs-prose><img src="a.png"><br><p>text <b>x</b></p><script>if (a < b) {}</script><pre><code class="shiki">${emitted([span("a", 0), span("b", 1)])}</code></pre><p>after</p></docs-prose>`;
-  const fixed = fixHighlightedCode(html);
-  expect(fixed).toContain(`<code class="shiki">${span("a", 0)}${span("b", 1)}</code>`);
-  expect(fixed).toContain("<p>after</p>");
+test("tags the tidy cannot nest do not confuse it", () => {
+  const html = `<docs-prose><img src="a.png"><br><p>text <b>x</b></p><script>if (a < b) {}</script><pre><code class="shiki">${highlighted([span("a", 0), "\n", span("b", 1)])}</code></pre><p>after</p></docs-prose>`;
+  expect(tidyPage(html)).toContain(
+    `<pre><code class="shiki">${span("a", 0)}\n${span("b", 1)}</code></pre>`,
+  );
+  expect(tidyPage(html)).toContain("<p>after</p>");
 });
 
 test("empty slot elements go, filled ones stay", () => {
@@ -93,12 +87,12 @@ test("empty slot elements go, filled ones stay", () => {
   ).toBe("<span>Done</span><div></div><slot>fallback</slot>");
 });
 
-test("tidyPage applies all three", () => {
-  const html = `<docs-prose><p>Run \n<code>x</code>\n.</p><slot></slot><pre><code class="shiki">${emitted([span("a", 0), span("b", 1)])}</code></pre></docs-prose>`;
+test("tidyPage removes the inline separators and the empty slots, and leaves code alone", () => {
+  const html = `<docs-prose><p>Run \n<code>x</code>\n.</p><slot></slot><pre><code class="shiki">${highlighted([span("a", 0), "\n", span("b", 1)])}</code></pre></docs-prose>`;
   const out = tidyPage(html);
   expect(out).toContain("<p>Run <code>x</code>.</p>");
   expect(out).not.toContain("<slot>");
-  expect(out).toContain(`${span("a", 0)}${span("b", 1)}`);
+  expect(out).toContain(`${span("a", 0)}\n${span("b", 1)}`);
 });
 
 test("tidyHtml and dropEmptySlots are idempotent", () => {

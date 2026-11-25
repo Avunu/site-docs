@@ -609,10 +609,11 @@ describe("the interactive parts", () => {
     expect(button!.attributes.popovertarget).toBe("project-switcher-menu");
     const links = nodes(switcher, (n) => n.tagName === "a");
     expect(links.length).toBeGreaterThanOrEqual(3);
-    // A link is named "Title, Docs": its title, then where it goes, with a separator a reader hears.
+    // A link is named by what it shows: its title, then its caption. No aria-label may name it
+    // differently (WCAG 2.5.3, Label in Name: axe's label-content-name-mismatch).
     for (const item of nodes(switcher, (n) => n.tagName === "li")) {
       const link = item.children[0];
-      expect(link.attributes["aria-label"]).toMatch(/^.+, .+$/);
+      expect(link.attributes["aria-label"]).toBeUndefined();
       expect(link.children.map((c: Json) => c.attributes.class)).toEqual(["t", "c"]);
     }
     // The keyboard code of a menu is gone with the roles.

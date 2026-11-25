@@ -6,9 +6,11 @@
 //    Between block elements that is harmless; between inline siblings it renders, so `[link](/x/).`
 //    comes out as "link ." and `` `code`, `` as "code ,". tidyHtml removes exactly that separator
 //    and keeps every space the author wrote.
-// 2. Inside a component slot the emitter also puts the newline between the highlighted tokens of a
-//    code block (`<span>git</span>\n<span> </span>`), which a <pre> renders as one token per line.
-//    fixHighlightedCode takes the separators back out and keeps the code's own line breaks.
+// 2. Highlighted code needs no fix. Jx 8 wrote a separator around every newline of a code block
+//    inside a component, and this file took those back out. Jx 11 writes no whitespace between inline
+//    siblings (jxsuite/jx#697), so the newlines in a block are the code's own and <pre> keeps them as
+//    written. verify/fences.ts compares every block with its source, which is what would catch a Jx
+//    that writes the separators again.
 // 3. Component expansion leaves empty <slot></slot> elements behind: dropEmptySlots.
 // 4. GitHub Pages serves a top-level 404.html for any unknown address. Jx 7 writes it there; Jx
 //    before 7 wrote 404/index.html, and publishNotFoundPage moves that one.
@@ -44,117 +46,13 @@ export function tidyHtml(html: string): string {
   return out + html.slice(last).replace(RUN, fixRun);
 }
 
-/** Opening tag names that are void elements: they never get a closing tag, so they never nest. */
-const VOID = new Set([
-  "area",
-  "base",
-  "br",
-  "col",
-  "embed",
-  "hr",
-  "img",
-  "input",
-  "link",
-  "meta",
-  "source",
-  "track",
-  "wbr",
-]);
-
-/** The [start, end) offsets of every <pre>…</pre> that sits inside a custom element (a tag with a hyphen). */
-function preBlocksInComponents(html: string): Array<[number, number]> {
-  const blocks: Array<[number, number]> = [];
-  const stack: string[] = [];
-  let componentDepth = 0;
-  let preStart = -1;
-  let preDepth = 0;
-  const tag = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][\w:-]*)\b[^>]*?(\/?)>/g;
-  for (const m of html.matchAll(tag)) {
-    if (!m[2]) continue;
-    const name = m[2].toLowerCase();
-    if (VOID.has(name) || m[3] === "/") continue;
-    if (name === "script" || name === "style" || name === "textarea") {
-      // Raw text elements: skip to their end so markup inside them is not read as tags.
-      if (!m[1]) {
-        const close = html.indexOf(`</${name}`, m.index + m[0].length);
-        if (close > -1) tag.lastIndex = html.indexOf(">", close) + 1;
-      }
-      continue;
-    }
-    if (!m[1]) {
-      stack.push(name);
-      if (name.includes("-")) componentDepth++;
-      if (name === "pre" && preDepth === 0 && componentDepth > 0) {
-        preStart = m.index;
-        preDepth = 1;
-      } else if (preDepth > 0) {
-        preDepth++;
-      }
-    } else {
-      const open = stack.lastIndexOf(name);
-      if (open === -1) continue;
-      while (stack.length > open) {
-        const closed = stack.pop()!;
-        if (closed.includes("-")) componentDepth--;
-        if (preDepth > 0) {
-          preDepth--;
-          if (preDepth === 0) blocks.push([preStart, m.index + m[0].length]);
-        }
-      }
-    }
-  }
-  return blocks;
-}
-
-/**
- * Takes the emitter's separators out of highlighted code blocks inside components. Between two
- * token spans a run of k newlines is m code newlines with a separator on each side of every one:
- * k = 2m + 1. Before the first or after the last token it is k = 2m.
- *
- * It must see each page once, as Jx wrote it: afterwards a code newline and an emitter separator look
- * alike (one newline between two spans), so a second pass would take the code's own line breaks out.
- * The pipeline guarantees that (the project root and its `dist/` are recreated on every run).
- */
-export function fixHighlightedCode(html: string): string {
-  const blocks = preBlocksInComponents(html);
-  if (blocks.length === 0) return html;
-  let out = "";
-  let last = 0;
-  for (const [start, end] of blocks) {
-    out += html.slice(last, start);
-    const block = html.slice(start, end);
-    out += /<code\b[^>]*\bclass="[^"]*\bshiki\b/.test(block) ? fixBlock(block) : block;
-    last = end;
-  }
-  return out + html.slice(last);
-}
-
-function fixBlock(block: string): string {
-  const open = /<code\b[^>]*>/.exec(block);
-  const close = block.lastIndexOf("</code>");
-  if (!open || close === -1) return block;
-  const innerStart = open.index + open[0].length;
-  const inner = block.slice(innerStart, close);
-  const fixed = inner
-    .replace(/^(\n+)(?=<span)/, (_m, run: string) => "\n".repeat(Math.floor(run.length / 2)))
-    .replace(
-      /(<\/span>)(\n+)(?=<span)/g,
-      (_m, tagText: string, run: string) => tagText + "\n".repeat(Math.floor((run.length - 1) / 2)),
-    )
-    .replace(
-      /(<\/span>)(\n+)$/,
-      (_m, tagText: string, run: string) => tagText + "\n".repeat(Math.floor(run.length / 2)),
-    );
-  return block.slice(0, innerStart) + fixed + block.slice(close);
-}
-
 /** Component expansion leaves an unfilled <slot></slot> behind; it renders nothing and says nothing. */
 export function dropEmptySlots(html: string): string {
   return html.replace(/<slot(?:\s[^>]*)?><\/slot>/g, "");
 }
 
 export function tidyPage(html: string): string {
-  return dropEmptySlots(fixHighlightedCode(tidyHtml(html)));
+  return dropEmptySlots(tidyHtml(html));
 }
 
 /**
