@@ -302,8 +302,7 @@
                               "tagName": "a",
                               "attributes": {
                                 "href": "${$map.item.href}",
-                                "aria-current": "${$map.item.current ? 'true' : 'false'}",
-                                "aria-label": "${$map.item.title}, ${$map.item.caption}"
+                                "aria-current": "${$map.item.current ? 'true' : 'false'}"
                               },
                               "children": [
                                 {
@@ -362,8 +361,7 @@
                         {
                           "tagName": "a",
                           "attributes": {
-                            "href": "https://avunu.net/open-source/",
-                            "aria-label": "All open-source projects, avunu.net"
+                            "href": "https://avunu.net/open-source/"
                           },
                           "children": [
                             {
@@ -390,8 +388,7 @@
                         {
                           "tagName": "a",
                           "attributes": {
-                            "href": "https://avunu.net/",
-                            "aria-label": "Back to avunu.net, avunu.net"
+                            "href": "https://avunu.net/"
                           },
                           "children": [
                             {
