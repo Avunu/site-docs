@@ -1,6 +1,5 @@
 // Step 11 of the pipeline (section 5.1): fixes up `<root>/dist` after `jx build`, in place.
-//   - whitespace: the emitter's separators between inline nodes and between highlighted code tokens
-//     (tidy.ts).
+//   - whitespace: the emitter's separators between inline nodes (tidy.ts).
 //   - `${`: staging writes every one with a zero-width space inside, so that Jx cannot evaluate it
 //     (inert.ts); in the text of a page, the title, the meta tags and the search index it is written
 //     back (an attribute of the page itself keeps the space).
@@ -305,7 +304,7 @@ export function rewriteRepoLinks(
  * addresses), `nav` is the sidebar data of step 7 (page titles, and the Markdown file of each page for
  * its repository links), `o` the repository root and the Markdown folder. Throws when `dist` does not
  * exist; everything else it finds is a warning in the summary. Run it once on a fresh Jx output (the
- * pipeline recreates the root and its `dist/` every time): see fixHighlightedCode in tidy.ts.
+ * pipeline recreates the root and its `dist/` every time).
  */
 export function runPostbuild(
   dist: string,

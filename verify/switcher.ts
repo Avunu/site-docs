@@ -3,12 +3,12 @@
 //   bun switcher.ts <dist> [route]        (<dist> is <root>/.site-docs/site/dist of a workspace build)
 //
 // The list is built into every page at build time from the catalog that projects.json produces and
-// is never fetched. Covers: without script the two avunu.net links still work, the list is complete and
-// grouped, the current project is marked, projects with documentation here link to their own pages,
-// the disclosure pattern (Enter or Space opens it, focus stays on the button, Tab walks the links and
-// out of the list, which closes it, Shift+Tab goes back, Escape closes it and focus is on the
-// button), light dismiss, no layout shift, no request to another site, a list that fits a phone
-// screen, and reduced motion.
+// is never fetched. Covers: without script the list is complete too (every project and the two avunu.net
+// links); the list is complete and grouped; the current project is marked; projects with documentation
+// here link to their own pages; the disclosure pattern (Enter or Space opens it, focus stays on the
+// button, Tab walks the links and out of the list, which closes it, Shift+Tab goes back, Escape closes
+// it and focus is on the button); light dismiss; no layout shift; no request to another site; a list
+// that fits a phone screen; and reduced motion.
 import { resolve } from "node:path";
 import type { Page } from "playwright-core";
 import { defaultDocsRoute, launch, serve, snapshotOf, watch } from "./lib.ts";
@@ -48,16 +48,23 @@ const focused = (page: Page) =>
       : "";
   });
 
-// 1. Without JavaScript the two avunu.net links still work and the button still opens the list.
+// 1. Without JavaScript the list is still complete: every project of the catalog is built into the page
+//    (the groups are rendered at build time), with the two avunu.net links, and the button opens it.
 {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   await page.goto(url);
   const items = await links(page).count();
   check(
-    items === 2,
-    "without JavaScript the list still offers the two avunu.net links",
+    items === snapshot.projects.length + 2,
+    "without JavaScript the list holds every project and the two avunu.net links",
     `${items} items`,
+  );
+  check(
+    (await page.locator('project-switcher a[href="https://avunu.net/"]').count()) === 1 &&
+      (await page.locator('project-switcher a[href="https://avunu.net/open-source/"]').count()) ===
+        1,
+    "without JavaScript the list still links to avunu.net",
   );
   await page.locator("project-switcher button.trigger").click();
   check(await isOpen(page), "without JavaScript the button still opens the list");
