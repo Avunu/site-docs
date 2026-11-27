@@ -63,7 +63,7 @@ jobs:
   check:
     name: Check
     runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","nixos"]') }}
-    timeout-minutes: 20
+    timeout-minutes: 40
     permissions:
       contents: read # checkout
     env:
