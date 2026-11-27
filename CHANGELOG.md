@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/Avunu/site-docs/compare/v0.4.1...v0.4.2) (2026-11-27)
+
+
+### Bug Fixes
+
+* **ci:** raise the check-docs cap from 20 to 40 minutes ([#272](https://github.com/Avunu/site-docs/issues/272)) ([413d0eb](https://github.com/Avunu/site-docs/commit/413d0eb0cc18df4314f27e5ca7c7591445e4b00b))
+
 ## [0.4.1](https://github.com/Avunu/site-docs/compare/v0.4.0...v0.4.1) (2026-11-25)
 
 
